@@ -1,0 +1,12 @@
+.env
+config.toml
+logs/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.coverage
+dist/
+build/
+*.egg-info/
