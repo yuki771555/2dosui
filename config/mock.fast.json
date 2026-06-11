@@ -1,0 +1,21 @@
+{
+  "reader": "mock",
+  "log_path": "logs/mock_bed_log.csv",
+  "zero_offset": 0.0,
+  "scale_factor": 1000.0,
+  "person_weight_kg": 60.0,
+  "sample_interval_sec": 0.1,
+  "warmup_samples": 0,
+  "median_samples": 1,
+  "moving_average_window": 3,
+  "exit_ratio": 0.3,
+  "return_ratio": 0.4,
+  "monitor_sec": 2.0,
+  "confirm_sec": 0.5,
+  "mock_sequence": [
+    {"samples": 5, "weight_kg": 60.0},
+    {"samples": 5, "weight_kg": 0.0},
+    {"samples": 8, "weight_kg": 60.0}
+  ]
+}
+

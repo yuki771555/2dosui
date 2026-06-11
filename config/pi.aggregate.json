@@ -1,0 +1,18 @@
+{
+  "reader": "adafruit_hx711",
+  "log_path": "/home/yuki/bed_log.csv",
+  "zero_offset": 0.0,
+  "scale_factor": 1.0,
+  "person_weight_kg": 60.0,
+  "sample_interval_sec": 1.0,
+  "warmup_samples": 5,
+  "median_samples": 9,
+  "moving_average_window": 5,
+  "exit_ratio": 0.3,
+  "return_ratio": 0.4,
+  "monitor_sec": 1800.0,
+  "confirm_sec": 180.0,
+  "data_pin": "D5",
+  "clock_pin": "D6"
+}
+
