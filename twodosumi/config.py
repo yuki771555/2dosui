@@ -10,6 +10,7 @@ from typing import Any
 class AppConfig:
     reader: str
     log_path: str
+    load_cell_layout: str = "four_half_bridge_aggregate"
     zero_offset: float = 0.0
     scale_factor: float = 1.0
     person_weight_kg: float = 60.0
@@ -26,6 +27,14 @@ class AppConfig:
     mock_sequence: list[dict[str, float]] = field(default_factory=list)
 
 
+FOUR_CELL_WIRING = {
+    "E+": "LC1 + LC2",
+    "E-": "LC3 + LC4",
+    "A+": "LC1 + LC3",
+    "A-": "LC2 + LC4",
+}
+
+
 def load_config(path: str | Path) -> AppConfig:
     with Path(path).open("r", encoding="utf-8") as f:
         data: dict[str, Any] = json.load(f)
@@ -38,4 +47,3 @@ def save_config(path: str | Path, config: AppConfig) -> None:
     with target.open("w", encoding="utf-8") as f:
         json.dump(asdict(config), f, indent=2)
         f.write("\n")
-

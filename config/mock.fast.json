@@ -1,6 +1,7 @@
 {
   "reader": "mock",
   "log_path": "logs/mock_bed_log.csv",
+  "load_cell_layout": "four_half_bridge_aggregate",
   "zero_offset": 0.0,
   "scale_factor": 1000.0,
   "person_weight_kg": 60.0,
@@ -18,4 +19,3 @@
     {"samples": 8, "weight_kg": 60.0}
   ]
 }
-

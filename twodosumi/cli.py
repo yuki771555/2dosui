@@ -5,7 +5,7 @@ from collections import deque
 from datetime import datetime
 import time
 
-from .config import AppConfig, load_config, save_config
+from .config import FOUR_CELL_WIRING, AppConfig, load_config, save_config
 from .detector import SecondSleepDetector
 from .logger import CsvLogger, LogRow
 from .sensors import create_reader, median_raw, moving_average, warmup
@@ -17,8 +17,24 @@ def _raw_to_weight(raw: float, config: AppConfig) -> float:
     return (raw - config.zero_offset) / config.scale_factor
 
 
+def _print_wiring_summary(config: AppConfig) -> None:
+    if config.load_cell_layout != "four_half_bridge_aggregate":
+        print(f"layout={config.load_cell_layout}")
+        return
+
+    print("layout=four_half_bridge_aggregate")
+    print("HX711 load cell bridge:")
+    for terminal, cells in FOUR_CELL_WIRING.items():
+        print(f"  {terminal}: {cells}")
+    print(
+        "HX711 to Raspberry Pi: "
+        f"VCC=3.3V, GND=GND, DT/DOUT={config.data_pin}, SCK/CLK={config.clock_pin}"
+    )
+
+
 def calibrate_zero(args: argparse.Namespace) -> int:
     config = load_config(args.config)
+    _print_wiring_summary(config)
     reader = create_reader(config)
     warmup(reader, config.warmup_samples)
     zero = median_raw(reader, args.samples)
@@ -30,6 +46,7 @@ def calibrate_zero(args: argparse.Namespace) -> int:
 
 def calibrate_scale(args: argparse.Namespace) -> int:
     config = load_config(args.config)
+    _print_wiring_summary(config)
     reader = create_reader(config)
     warmup(reader, config.warmup_samples)
     raw = median_raw(reader, args.samples)
@@ -41,6 +58,7 @@ def calibrate_scale(args: argparse.Namespace) -> int:
 
 def run(args: argparse.Namespace) -> int:
     config = load_config(args.config)
+    _print_wiring_summary(config)
     reader = create_reader(config)
     detector = SecondSleepDetector(config)
     weights: deque[float] = deque(maxlen=max(1, config.moving_average_window))
@@ -104,4 +122,3 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     return int(args.func(args))
-
