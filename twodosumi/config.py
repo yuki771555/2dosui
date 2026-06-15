@@ -26,6 +26,11 @@ class AppConfig:
     data_pin: str = "D5"
     clock_pin: str = "D6"
     hx711_ready_timeout_sec: float = 3.0
+    alarm_enabled: bool = False
+    buzzer_enabled: bool = True
+    buzzer_pin: str = "D13"
+    buzzer_duration_sec: float = 5.0
+    buzzer_pulse_sec: float = 0.25
     webhook_enabled: bool = False
     webhook_events: list[str] = field(default_factory=lambda: ["second_sleep_detected"])
     webhook_payload_format: str = "discord"
@@ -109,6 +114,10 @@ def validate_config(config: AppConfig) -> list[str]:
         errors.append("confirm_sec must be greater than 0")
     if config.hx711_ready_timeout_sec <= 0:
         errors.append("hx711_ready_timeout_sec must be greater than 0")
+    if config.buzzer_duration_sec <= 0:
+        errors.append("buzzer_duration_sec must be greater than 0")
+    if config.buzzer_pulse_sec <= 0:
+        errors.append("buzzer_pulse_sec must be greater than 0")
     if config.webhook_timeout_sec <= 0:
         errors.append("webhook_timeout_sec must be greater than 0")
     if config.webhook_payload_format not in {"discord", "json"}:

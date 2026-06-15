@@ -6,6 +6,7 @@ from datetime import datetime
 import sys
 import time
 
+from .alarm import ALARM_EVENT, SecondSleepAlarm
 from .config import FOUR_CELL_WIRING, AppConfig, load_config, load_secrets, save_config, validate_config
 from .detector import SecondSleepDetector
 from .logger import CsvLogger, LogRow
@@ -84,6 +85,7 @@ def run(args: argparse.Namespace) -> int:
         raise ValueError("; ".join(errors))
     secrets = load_secrets(args.secrets)
     notifier = WebhookNotifier(config, secrets)
+    alarm = SecondSleepAlarm(config, secrets)
     _print_wiring_summary(config)
     reader = create_reader(config)
     detector = SecondSleepDetector(config)
@@ -94,7 +96,7 @@ def run(args: argparse.Namespace) -> int:
     sample_count = 0
 
     try:
-        with CsvLogger(config.log_path) as logger:
+        with CsvLogger(config.log_path) as logger, alarm:
             while args.max_samples is None or sample_count < args.max_samples:
                 loop_started = time.monotonic()
                 raw = median_raw(reader, config.median_samples)
@@ -122,18 +124,27 @@ def run(args: argparse.Namespace) -> int:
                     ),
                 )
                 if result.event:
-                    try:
-                        notifier.send(
-                            Notification(
-                                event=result.event,
-                                state=result.state.value,
-                                weight_kg=weight,
-                                smoothed_weight_kg=smoothed,
-                                timestamp=row.timestamp,
+                    for warning in alarm.handle_event(
+                        event=result.event,
+                        state=result.state.value,
+                        weight_kg=weight,
+                        smoothed_weight_kg=smoothed,
+                        timestamp=row.timestamp,
+                    ):
+                        print(f"WARNING: {warning}", file=sys.stderr, flush=True)
+                    if not (config.alarm_enabled and result.event == ALARM_EVENT):
+                        try:
+                            notifier.send(
+                                Notification(
+                                    event=result.event,
+                                    state=result.state.value,
+                                    weight_kg=weight,
+                                    smoothed_weight_kg=smoothed,
+                                    timestamp=row.timestamp,
+                                )
                             )
-                        )
-                    except RuntimeError as exc:
-                        print(f"WARNING: {exc}", file=sys.stderr, flush=True)
+                        except RuntimeError as exc:
+                            print(f"WARNING: {exc}", file=sys.stderr, flush=True)
 
                 message = f"{row.timestamp.isoformat(timespec='seconds')} {smoothed:7.2f}kg {result.state.value}"
                 if result.event:

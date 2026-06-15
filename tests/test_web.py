@@ -24,7 +24,15 @@ class WebTests(unittest.TestCase):
 
             res = client.post(
                 "/api/settings",
-                json={"settings": {"person_weight_kg": 70, "webhook_enabled": True}},
+                json={
+                    "settings": {
+                        "person_weight_kg": 70,
+                        "alarm_enabled": True,
+                        "buzzer_enabled": True,
+                        "buzzer_pin": "D13",
+                        "webhook_enabled": True,
+                    }
+                },
                 headers={"X-2Dosumi-Token": "token"},
             )
             self.assertEqual(res.status_code, 200)
@@ -33,6 +41,9 @@ class WebTests(unittest.TestCase):
             res = client.get("/api/settings", headers={"X-2Dosumi-Token": "token"})
             settings = res.get_json()["settings"]
             self.assertEqual(settings["person_weight_kg"], 70)
+            self.assertTrue(settings["alarm_enabled"])
+            self.assertTrue(settings["buzzer_enabled"])
+            self.assertEqual(settings["buzzer_pin"], "D13")
             self.assertTrue(settings["webhook_enabled"])
 
 

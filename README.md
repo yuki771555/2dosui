@@ -26,6 +26,8 @@ tailscale serve --bg 8080
 
 The Web UI can edit thresholds and timing settings, start/stop detection, run zero and scale calibration, and test webhook delivery. Use a Discord webhook URL with `webhook_payload_format=discord`, or set the format to `json` for a generic webhook endpoint.
 
+The second-sleep alarm can be turned on or off from the Web UI. When `alarm_enabled` is on, `second_sleep_detected` sends a Discord webhook using `config/secrets.json` and pulses the Raspberry Pi buzzer. The default buzzer pin is `board.D13`; use an active buzzer or a suitable transistor/driver circuit for your buzzer module.
+
 To start the Web UI automatically when the Pi boots:
 
 ```bash
