@@ -8,6 +8,5 @@ $ErrorActionPreference = "Stop"
 $Target = "$User@$HostName"
 
 ssh $Target "mkdir -p '$RemoteDir/config' '$RemoteDir/twodosumi' '$RemoteDir/scripts'"
-scp -r twodosumi config requirements-pi.txt README.md "${Target}:$RemoteDir/"
+scp -r twodosumi config scripts requirements-pi.txt README.md "${Target}:$RemoteDir/"
 Write-Host "Deployed to ${Target}:$RemoteDir"
-

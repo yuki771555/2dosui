@@ -1,6 +1,7 @@
 {
   "reader": "mock",
   "log_path": "logs/mock_bed_log.csv",
+  "status_path": "logs/mock_status.json",
   "load_cell_layout": "four_half_bridge_aggregate",
   "zero_offset": 0.0,
   "scale_factor": 1000.0,
@@ -13,6 +14,13 @@
   "return_ratio": 0.4,
   "monitor_sec": 2.0,
   "confirm_sec": 0.5,
+  "data_pin": "D6",
+  "clock_pin": "D5",
+  "hx711_ready_timeout_sec": 3.0,
+  "webhook_enabled": false,
+  "webhook_events": ["second_sleep_detected"],
+  "webhook_payload_format": "discord",
+  "webhook_timeout_sec": 5.0,
   "mock_sequence": [
     {"samples": 5, "weight_kg": 60.0},
     {"samples": 5, "weight_kg": 0.0},

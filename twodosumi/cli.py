@@ -3,12 +3,15 @@ from __future__ import annotations
 import argparse
 from collections import deque
 from datetime import datetime
+import sys
 import time
 
-from .config import FOUR_CELL_WIRING, AppConfig, load_config, save_config
+from .config import FOUR_CELL_WIRING, AppConfig, load_config, load_secrets, save_config, validate_config
 from .detector import SecondSleepDetector
 from .logger import CsvLogger, LogRow
+from .notifier import Notification, WebhookNotifier
 from .sensors import create_reader, median_raw, moving_average, warmup
+from .status import make_status, write_status
 
 
 def _raw_to_weight(raw: float, config: AppConfig) -> float:
@@ -33,31 +36,54 @@ def _print_wiring_summary(config: AppConfig) -> None:
 
 
 def calibrate_zero(args: argparse.Namespace) -> int:
-    config = load_config(args.config)
-    _print_wiring_summary(config)
-    reader = create_reader(config)
-    warmup(reader, config.warmup_samples)
-    zero = median_raw(reader, args.samples)
-    config.zero_offset = zero
-    save_config(args.config, config)
+    zero = calibrate_zero_file(args.config, args.samples)
     print(f"ZERO_OFFSET saved: {zero:.3f}")
     return 0
 
 
-def calibrate_scale(args: argparse.Namespace) -> int:
-    config = load_config(args.config)
+def calibrate_zero_file(config_path: str, samples: int) -> float:
+    config = load_config(config_path)
+    errors = validate_config(config)
+    if errors:
+        raise ValueError("; ".join(errors))
     _print_wiring_summary(config)
     reader = create_reader(config)
     warmup(reader, config.warmup_samples)
-    raw = median_raw(reader, args.samples)
-    config.scale_factor = (raw - config.zero_offset) / args.known_kg
-    save_config(args.config, config)
-    print(f"SCALE_FACTOR saved: {config.scale_factor:.6f}")
+    zero = median_raw(reader, samples)
+    config.zero_offset = zero
+    save_config(config_path, config)
+    return zero
+
+
+def calibrate_scale_file(config_path: str, known_kg: float, samples: int) -> float:
+    if known_kg <= 0:
+        raise ValueError("known_kg must be greater than 0")
+    config = load_config(config_path)
+    errors = validate_config(config)
+    if errors:
+        raise ValueError("; ".join(errors))
+    _print_wiring_summary(config)
+    reader = create_reader(config)
+    warmup(reader, config.warmup_samples)
+    raw = median_raw(reader, samples)
+    config.scale_factor = (raw - config.zero_offset) / known_kg
+    save_config(config_path, config)
+    return config.scale_factor
+
+
+def calibrate_scale(args: argparse.Namespace) -> int:
+    scale = calibrate_scale_file(args.config, args.known_kg, args.samples)
+    print(f"SCALE_FACTOR saved: {scale:.6f}")
     return 0
 
 
 def run(args: argparse.Namespace) -> int:
     config = load_config(args.config)
+    errors = validate_config(config)
+    if errors:
+        raise ValueError("; ".join(errors))
+    secrets = load_secrets(args.secrets)
+    notifier = WebhookNotifier(config, secrets)
     _print_wiring_summary(config)
     reader = create_reader(config)
     detector = SecondSleepDetector(config)
@@ -67,32 +93,59 @@ def run(args: argparse.Namespace) -> int:
     started = time.monotonic()
     sample_count = 0
 
-    with CsvLogger(config.log_path) as logger:
-        while args.max_samples is None or sample_count < args.max_samples:
-            loop_started = time.monotonic()
-            raw = median_raw(reader, config.median_samples)
-            weight = _raw_to_weight(raw, config)
-            weights.append(weight)
-            smoothed = moving_average(weights)
-            result = detector.update(smoothed, time.monotonic() - started)
-            row = LogRow(
-                timestamp=datetime.now(),
-                raw=raw,
-                weight_kg=weight,
-                smoothed_weight_kg=smoothed,
-                state=result.state.value,
-                event=result.event,
-            )
-            logger.write(row)
-            message = f"{row.timestamp.isoformat(timespec='seconds')} {smoothed:7.2f}kg {result.state.value}"
-            if result.event:
-                message += f" event={result.event}"
-            print(message, flush=True)
+    try:
+        with CsvLogger(config.log_path) as logger:
+            while args.max_samples is None or sample_count < args.max_samples:
+                loop_started = time.monotonic()
+                raw = median_raw(reader, config.median_samples)
+                weight = _raw_to_weight(raw, config)
+                weights.append(weight)
+                smoothed = moving_average(weights)
+                result = detector.update(smoothed, time.monotonic() - started)
+                row = LogRow(
+                    timestamp=datetime.now(),
+                    raw=raw,
+                    weight_kg=weight,
+                    smoothed_weight_kg=smoothed,
+                    state=result.state.value,
+                    event=result.event,
+                )
+                logger.write(row)
+                write_status(
+                    config.status_path,
+                    make_status(
+                        raw=raw,
+                        weight_kg=weight,
+                        smoothed_weight_kg=smoothed,
+                        state=result.state.value,
+                        event=result.event,
+                    ),
+                )
+                if result.event:
+                    try:
+                        notifier.send(
+                            Notification(
+                                event=result.event,
+                                state=result.state.value,
+                                weight_kg=weight,
+                                smoothed_weight_kg=smoothed,
+                                timestamp=row.timestamp,
+                            )
+                        )
+                    except RuntimeError as exc:
+                        print(f"WARNING: {exc}", file=sys.stderr, flush=True)
 
-            sample_count += 1
-            sleep_for = config.sample_interval_sec - (time.monotonic() - loop_started)
-            if sleep_for > 0:
-                time.sleep(sleep_for)
+                message = f"{row.timestamp.isoformat(timespec='seconds')} {smoothed:7.2f}kg {result.state.value}"
+                if result.event:
+                    message += f" event={result.event}"
+                print(message, flush=True)
+
+                sample_count += 1
+                sleep_for = config.sample_interval_sec - (time.monotonic() - loop_started)
+                if sleep_for > 0:
+                    time.sleep(sleep_for)
+    finally:
+        write_status(config.status_path, make_status(running=False, message="stopped"))
     return 0
 
 
@@ -113,9 +166,24 @@ def build_parser() -> argparse.ArgumentParser:
 
     run_parser = sub.add_parser("run")
     run_parser.add_argument("--config", required=True)
+    run_parser.add_argument("--secrets")
     run_parser.add_argument("--max-samples", type=int)
     run_parser.set_defaults(func=run)
+
+    web_parser = sub.add_parser("web")
+    web_parser.add_argument("--config", required=True)
+    web_parser.add_argument("--secrets", required=True)
+    web_parser.add_argument("--host", default="127.0.0.1")
+    web_parser.add_argument("--port", type=int, default=8080)
+    web_parser.set_defaults(func=web)
     return parser
+
+
+def web(args: argparse.Namespace) -> int:
+    from .web import run_web
+
+    run_web(args.config, args.secrets, args.host, args.port)
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:

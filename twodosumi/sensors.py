@@ -35,8 +35,6 @@ class AdafruitHX711AggregateReader(SensorReader):
         try:
             import board
             import digitalio
-            from adafruit_hx711.analog_in import AnalogIn
-            from adafruit_hx711.hx711 import HX711
         except ImportError as exc:
             raise RuntimeError(
                 "Install Pi dependencies with: python3 -m pip install -r requirements-pi.txt"
@@ -48,12 +46,46 @@ class AdafruitHX711AggregateReader(SensorReader):
         data.direction = digitalio.Direction.INPUT
         clock = digitalio.DigitalInOut(clock_pin)
         clock.direction = digitalio.Direction.OUTPUT
+        clock.value = False
 
-        hx711 = HX711(data, clock)
-        self._channel_a = AnalogIn(hx711, HX711.CHAN_A_GAIN_128)
+        self._data = data
+        self._clock = clock
+        self._timeout_sec = config.hx711_ready_timeout_sec
+        self._data_pin_name = config.data_pin
+        self._clock_pin_name = config.clock_pin
 
     def read_raw(self) -> float:
-        return float(self._channel_a.value)
+        self._wait_until_ready()
+        return float(self._read_channel_a_gain_128())
+
+    def _wait_until_ready(self) -> None:
+        deadline = time.monotonic() + self._timeout_sec
+        while self._data.value:
+            if time.monotonic() >= deadline:
+                raise TimeoutError(
+                    "HX711 DOUT stayed HIGH and no sample became ready. "
+                    f"Check VCC=3.3V, GND, DT/DOUT={self._data_pin_name}, "
+                    f"SCK/CLK={self._clock_pin_name}, and the 4-load-cell bridge wiring."
+                )
+            time.sleep(0.01)
+
+    def _read_channel_a_gain_128(self) -> int:
+        value = 0
+        for _ in range(24):
+            self._clock.value = True
+            time.sleep(0.000001)
+            value = (value << 1) | int(self._data.value)
+            self._clock.value = False
+            time.sleep(0.000001)
+
+        # One extra pulse selects channel A with gain 128 for the next sample.
+        self._clock.value = True
+        time.sleep(0.000001)
+        self._clock.value = False
+
+        if value & 0x800000:
+            value -= 0x1000000
+        return value
 
 
 def create_reader(config: AppConfig) -> SensorReader:
@@ -83,4 +115,3 @@ def moving_average(values: Iterable[float]) -> float:
     if not data:
         return 0.0
     return sum(data) / len(data)
-

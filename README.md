@@ -8,16 +8,56 @@ Raspberry Pi + HX711 + load cells project for detecting return-to-bed events.
 python -m twodosumi run --config config/mock.fast.json --max-samples 25
 ```
 
+## Web UI and webhook notifications
+
+Install dependencies on the Raspberry Pi, then start the Web UI:
+
+```bash
+python3 -m pip install -r requirements-pi.txt
+python3 -m twodosumi web --config config/pi.aggregate.json --secrets config/secrets.json --host 127.0.0.1 --port 8080
+```
+
+On first launch, `config/secrets.json` is created with a `web_ui_token`.
+Open the UI through Tailscale Serve:
+
+```bash
+tailscale serve --bg 8080
+```
+
+The Web UI can edit thresholds and timing settings, start/stop detection, run zero and scale calibration, and test webhook delivery. Use a Discord webhook URL with `webhook_payload_format=discord`, or set the format to `json` for a generic webhook endpoint.
+
+To start the Web UI automatically when the Pi boots:
+
+```bash
+chmod +x scripts/install_twodosumi_web_service.sh
+./scripts/install_twodosumi_web_service.sh
+tailscale serve --bg 8080
+```
+
+The installer defaults to `APP_DIR=/home/yuki/2dosumi`, `APP_USER=yuki`, and port `8080`. Override them if needed:
+
+```bash
+APP_DIR=/home/pi/2dosumi APP_USER=pi PORT=8080 ./scripts/install_twodosumi_web_service.sh
+```
+
+Useful checks:
+
+```bash
+systemctl status twodosumi-web.service --no-pager
+journalctl -u twodosumi-web.service -f
+tailscale serve status
+```
+
 ## Raspberry Pi setup
 
 ```bash
 python3 -m pip install -r requirements-pi.txt
 python3 -m twodosumi calibrate-zero --config config/pi.aggregate.json
 python3 -m twodosumi calibrate-scale --config config/pi.aggregate.json --known-kg 8
-python3 -m twodosumi run --config config/pi.aggregate.json
+python3 -m twodosumi run --config config/pi.aggregate.json --secrets config/secrets.json
 ```
 
-The initial Pi config uses HX711 DATA on `board.D5` and SCK on `board.D6`.
+The current Pi config uses HX711 DATA on `board.D6` and SCK on `board.D5`.
 
 ## 4 load cell wiring
 
@@ -37,7 +77,7 @@ HX711 to Raspberry Pi:
 | --- | --- |
 | `VCC` | Pin 1 `3.3V` |
 | `GND` | Pin 6 `GND` |
-| `DT` / `DOUT` | Pin 29 `GPIO5` (`board.D5`) |
-| `SCK` / `CLK` | Pin 31 `GPIO6` (`board.D6`) |
+| `DT` / `DOUT` | Pin 31 `GPIO6` (`board.D6`) |
+| `SCK` / `CLK` | Pin 29 `GPIO5` (`board.D5`) |
 
 Use 3.3V for HX711 VCC first. Do not feed a 5V signal into Raspberry Pi GPIO.
