@@ -16,6 +16,7 @@ class Notification:
     weight_kg: float
     smoothed_weight_kg: float
     timestamp: datetime
+    message: str = ""
 
 
 class WebhookNotifier:
@@ -53,23 +54,27 @@ class WebhookNotifier:
     def _payload(self, notification: Notification) -> dict[str, Any]:
         timestamp = notification.timestamp.isoformat(timespec="seconds")
         if self.config.webhook_payload_format == "discord":
+            content = notification.message or (
+                f"2dosumi: {notification.event} "
+                f"({notification.smoothed_weight_kg:.2f} kg, {notification.state})"
+            )
+            fields = [
+                {"name": "event", "value": notification.event, "inline": True},
+                {"name": "state", "value": notification.state, "inline": True},
+                {
+                    "name": "weight",
+                    "value": f"{notification.smoothed_weight_kg:.2f} kg",
+                    "inline": True,
+                },
+            ]
+            if notification.message:
+                fields.append({"name": "message", "value": notification.message, "inline": False})
             return {
-                "content": (
-                    f"2dosumi: {notification.event} "
-                    f"({notification.smoothed_weight_kg:.2f} kg, {notification.state})"
-                ),
+                "content": content,
                 "embeds": [
                     {
                         "title": "2dosumi event",
-                        "fields": [
-                            {"name": "event", "value": notification.event, "inline": True},
-                            {"name": "state", "value": notification.state, "inline": True},
-                            {
-                                "name": "weight",
-                                "value": f"{notification.smoothed_weight_kg:.2f} kg",
-                                "inline": True,
-                            },
-                        ],
+                        "fields": fields,
                         "timestamp": timestamp,
                     }
                 ],

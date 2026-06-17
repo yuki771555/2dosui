@@ -2,16 +2,19 @@ from __future__ import annotations
 
 import argparse
 from collections import deque
+from dataclasses import asdict
 from datetime import datetime
+import json
 import sys
 import time
 
-from .alarm import ALARM_EVENT, SecondSleepAlarm
+from .alarm import ALARM_EVENT, REALARM_EVENT, SCHEDULED_ALARM_EVENT, ScheduledAlarmOutput, SecondSleepAlarm
 from .config import FOUR_CELL_WIRING, AppConfig, load_config, load_secrets, save_config, validate_config
 from .detector import SecondSleepDetector
 from .logger import CsvLogger, LogRow
 from .notifier import Notification, WebhookNotifier
-from .sensors import create_reader, median_raw, moving_average, warmup
+from .scheduled_alarm import ScheduledAlarmManager
+from .sensors import check_sensor, create_reader, median_raw, moving_average, warmup
 from .status import make_status, write_status
 
 
@@ -78,6 +81,33 @@ def calibrate_scale(args: argparse.Namespace) -> int:
     return 0
 
 
+def check_sensor_command(args: argparse.Namespace) -> int:
+    config = load_config(args.config)
+    errors = validate_config(config)
+    if errors:
+        raise ValueError("; ".join(errors))
+    result = check_sensor(config, args.samples, args.interval_sec)
+    data = asdict(result)
+    if args.json:
+        print(json.dumps(data, indent=2))
+    else:
+        print(f"ok={result.ok} reader={result.reader} samples={result.samples_read}/{result.samples_requested}")
+        if result.raw_median is not None:
+            print(
+                "raw "
+                f"min={result.raw_min:.3f} max={result.raw_max:.3f} "
+                f"median={result.raw_median:.3f} span={result.raw_span:.3f}"
+            )
+        if result.weight_median_kg is not None:
+            print(f"weight_median_kg={result.weight_median_kg:.3f}")
+        print(f"duration_sec={result.duration_sec:.3f}")
+        if result.message:
+            print(result.message)
+        for warning in result.warnings or []:
+            print(f"WARNING: {warning}", file=sys.stderr)
+    return 0 if result.ok else 1
+
+
 def run(args: argparse.Namespace) -> int:
     config = load_config(args.config)
     errors = validate_config(config)
@@ -86,9 +116,11 @@ def run(args: argparse.Namespace) -> int:
     secrets = load_secrets(args.secrets)
     notifier = WebhookNotifier(config, secrets)
     alarm = SecondSleepAlarm(config, secrets)
+    scheduled_alarm_output = ScheduledAlarmOutput(config, secrets)
     _print_wiring_summary(config)
     reader = create_reader(config)
     detector = SecondSleepDetector(config)
+    scheduled_alarm_manager = ScheduledAlarmManager(config)
     weights: deque[float] = deque(maxlen=max(1, config.moving_average_window))
 
     warmup(reader, config.warmup_samples)
@@ -96,21 +128,29 @@ def run(args: argparse.Namespace) -> int:
     sample_count = 0
 
     try:
-        with CsvLogger(config.log_path) as logger, alarm:
+        with CsvLogger(config.log_path) as logger, alarm, scheduled_alarm_output:
             while args.max_samples is None or sample_count < args.max_samples:
                 loop_started = time.monotonic()
                 raw = median_raw(reader, config.median_samples)
                 weight = _raw_to_weight(raw, config)
                 weights.append(weight)
                 smoothed = moving_average(weights)
+                timestamp = datetime.now()
                 result = detector.update(smoothed, time.monotonic() - started)
+                scheduled_actions = scheduled_alarm_manager.update(
+                    now=timestamp,
+                    smoothed_weight_kg=smoothed,
+                )
+                status_event = result.event or (scheduled_actions[0].event if scheduled_actions else "")
+                status_message = scheduled_actions[0].message if scheduled_actions else ""
+                scheduled_snapshot = scheduled_alarm_manager.snapshot(now=timestamp)
                 row = LogRow(
-                    timestamp=datetime.now(),
+                    timestamp=timestamp,
                     raw=raw,
                     weight_kg=weight,
                     smoothed_weight_kg=smoothed,
                     state=result.state.value,
-                    event=result.event,
+                    event=status_event,
                 )
                 logger.write(row)
                 write_status(
@@ -120,7 +160,10 @@ def run(args: argparse.Namespace) -> int:
                         weight_kg=weight,
                         smoothed_weight_kg=smoothed,
                         state=result.state.value,
-                        event=result.event,
+                        event=status_event,
+                        message=status_message,
+                        next_scheduled_alarm=scheduled_snapshot["next_scheduled_alarm"],
+                        pending_rechecks=scheduled_snapshot["pending_rechecks"],
                     ),
                 )
                 if result.event:
@@ -146,9 +189,24 @@ def run(args: argparse.Namespace) -> int:
                         except RuntimeError as exc:
                             print(f"WARNING: {exc}", file=sys.stderr, flush=True)
 
+                for action in scheduled_actions:
+                    if action.event not in {SCHEDULED_ALARM_EVENT, REALARM_EVENT}:
+                        continue
+                    for warning in scheduled_alarm_output.handle_event(
+                        event=action.event,
+                        state=result.state.value,
+                        weight_kg=weight,
+                        smoothed_weight_kg=smoothed,
+                        timestamp=row.timestamp,
+                        message=action.message,
+                    ):
+                        print(f"WARNING: {warning}", file=sys.stderr, flush=True)
+
                 message = f"{row.timestamp.isoformat(timespec='seconds')} {smoothed:7.2f}kg {result.state.value}"
-                if result.event:
-                    message += f" event={result.event}"
+                if status_event:
+                    message += f" event={status_event}"
+                if status_message:
+                    message += f" message={status_message}"
                 print(message, flush=True)
 
                 sample_count += 1
@@ -174,6 +232,13 @@ def build_parser() -> argparse.ArgumentParser:
     scale.add_argument("--known-kg", type=float, required=True)
     scale.add_argument("--samples", type=int, default=30)
     scale.set_defaults(func=calibrate_scale)
+
+    sensor_check = sub.add_parser("check-sensor")
+    sensor_check.add_argument("--config", required=True)
+    sensor_check.add_argument("--samples", type=int, default=10)
+    sensor_check.add_argument("--interval-sec", type=float, default=0.1)
+    sensor_check.add_argument("--json", action="store_true")
+    sensor_check.set_defaults(func=check_sensor_command)
 
     run_parser = sub.add_parser("run")
     run_parser.add_argument("--config", required=True)

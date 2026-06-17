@@ -7,6 +7,15 @@ from typing import Any
 
 
 @dataclass
+class ScheduledAlarmConfig:
+    id: str
+    time: str = "07:00"
+    enabled: bool = True
+    label: str = ""
+    weekdays: list[int] = field(default_factory=lambda: [0, 1, 2, 3, 4, 5, 6])
+
+
+@dataclass
 class AppConfig:
     reader: str
     log_path: str
@@ -31,6 +40,9 @@ class AppConfig:
     buzzer_pin: str = "D13"
     buzzer_duration_sec: float = 5.0
     buzzer_pulse_sec: float = 0.25
+    scheduled_alarm_enabled: bool = True
+    scheduled_alarms: list[ScheduledAlarmConfig] = field(default_factory=list)
+    bed_recheck_minutes: float = 5.0
     webhook_enabled: bool = False
     webhook_events: list[str] = field(default_factory=lambda: ["second_sleep_detected"])
     webhook_payload_format: str = "discord"
@@ -49,6 +61,19 @@ FOUR_CELL_WIRING = {
 def load_config(path: str | Path) -> AppConfig:
     with Path(path).open("r", encoding="utf-8") as f:
         data: dict[str, Any] = json.load(f)
+    if "scheduled_alarms" in data:
+        data["scheduled_alarms"] = [
+            alarm
+            if isinstance(alarm, ScheduledAlarmConfig)
+            else ScheduledAlarmConfig(
+                id=str(alarm.get("id", "")),
+                time=str(alarm.get("time", "07:00")),
+                enabled=bool(alarm.get("enabled", True)),
+                label=str(alarm.get("label", "")),
+                weekdays=[int(day) for day in alarm.get("weekdays", [0, 1, 2, 3, 4, 5, 6])],
+            )
+            for alarm in data["scheduled_alarms"]
+        ]
     return AppConfig(**data)
 
 
@@ -66,6 +91,9 @@ KNOWN_EVENTS = {
     "return_cancelled",
     "second_sleep_detected",
     "monitor_done",
+    "scheduled_alarm",
+    "bed_still_occupied_realarm",
+    "alarm_dismissed",
 }
 
 
@@ -118,6 +146,8 @@ def validate_config(config: AppConfig) -> list[str]:
         errors.append("buzzer_duration_sec must be greater than 0")
     if config.buzzer_pulse_sec <= 0:
         errors.append("buzzer_pulse_sec must be greater than 0")
+    if config.bed_recheck_minutes <= 0:
+        errors.append("bed_recheck_minutes must be greater than 0")
     if config.webhook_timeout_sec <= 0:
         errors.append("webhook_timeout_sec must be greater than 0")
     if config.webhook_payload_format not in {"discord", "json"}:
@@ -125,4 +155,22 @@ def validate_config(config: AppConfig) -> list[str]:
     unknown_events = sorted(set(config.webhook_events) - KNOWN_EVENTS)
     if unknown_events:
         errors.append(f"unknown webhook_events: {', '.join(unknown_events)}")
+    alarm_ids: set[str] = set()
+    for alarm in config.scheduled_alarms:
+        if not alarm.id:
+            errors.append("scheduled alarm id must not be empty")
+        elif alarm.id in alarm_ids:
+            errors.append(f"duplicate scheduled alarm id: {alarm.id}")
+        alarm_ids.add(alarm.id)
+        parts = alarm.time.split(":")
+        if len(parts) != 2 or not all(part.isdigit() for part in parts):
+            errors.append(f"scheduled alarm {alarm.id} time must be HH:MM")
+        else:
+            hour = int(parts[0])
+            minute = int(parts[1])
+            if not (0 <= hour <= 23 and 0 <= minute <= 59):
+                errors.append(f"scheduled alarm {alarm.id} time must be HH:MM")
+        unknown_weekdays = sorted(day for day in alarm.weekdays if day < 0 or day > 6)
+        if unknown_weekdays:
+            errors.append(f"scheduled alarm {alarm.id} weekdays must be 0 through 6")
     return errors

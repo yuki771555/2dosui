@@ -18,6 +18,8 @@ class RuntimeStatus:
     state: str = ""
     event: str = ""
     message: str = ""
+    next_scheduled_alarm: dict[str, object] | None = None
+    pending_rechecks: list[dict[str, object]] | None = None
 
 
 def make_status(
@@ -29,6 +31,8 @@ def make_status(
     event: str = "",
     message: str = "",
     running: bool = True,
+    next_scheduled_alarm: dict[str, object] | None = None,
+    pending_rechecks: list[dict[str, object]] | None = None,
 ) -> RuntimeStatus:
     return RuntimeStatus(
         timestamp=datetime.now().isoformat(timespec="seconds"),
@@ -40,6 +44,8 @@ def make_status(
         state=state,
         event=event,
         message=message,
+        next_scheduled_alarm=next_scheduled_alarm,
+        pending_rechecks=pending_rechecks,
     )
 
 
