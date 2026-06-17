@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 import itertools
+import math
 import statistics
 import time
 from typing import Iterable
@@ -13,6 +15,22 @@ class SensorReader(ABC):
     @abstractmethod
     def read_raw(self) -> float:
         raise NotImplementedError
+
+
+@dataclass
+class SensorCheckResult:
+    ok: bool
+    reader: str
+    samples_requested: int
+    samples_read: int
+    raw_min: float | None = None
+    raw_max: float | None = None
+    raw_median: float | None = None
+    raw_span: float | None = None
+    weight_median_kg: float | None = None
+    duration_sec: float = 0.0
+    message: str = ""
+    warnings: list[str] | None = None
 
 
 class MockReader(SensorReader):
@@ -115,3 +133,60 @@ def moving_average(values: Iterable[float]) -> float:
     if not data:
         return 0.0
     return sum(data) / len(data)
+
+
+def check_sensor(config: AppConfig, samples: int = 10, interval_sec: float = 0.1) -> SensorCheckResult:
+    requested = max(1, int(samples))
+    warnings: list[str] = []
+    values: list[float] = []
+    started = time.monotonic()
+    try:
+        reader = create_reader(config)
+        warmup(reader, min(max(0, config.warmup_samples), 5))
+        for index in range(requested):
+            raw = float(reader.read_raw())
+            if not math.isfinite(raw):
+                raise RuntimeError(f"sensor returned a non-finite raw value: {raw}")
+            values.append(raw)
+            if index < requested - 1 and interval_sec > 0:
+                time.sleep(interval_sec)
+    except Exception as exc:
+        return SensorCheckResult(
+            ok=False,
+            reader=config.reader,
+            samples_requested=requested,
+            samples_read=len(values),
+            duration_sec=time.monotonic() - started,
+            message=str(exc),
+            warnings=warnings,
+        )
+
+    raw_min = min(values)
+    raw_max = max(values)
+    raw_median = float(statistics.median(values))
+    raw_span = raw_max - raw_min
+    weight_median_kg = None
+    if config.scale_factor != 0:
+        weight_median_kg = (raw_median - config.zero_offset) / config.scale_factor
+    if raw_span == 0 and requested > 1:
+        warnings.append(
+            "Raw values did not change during the check. This can be normal if the bed was still, "
+            "but press/release the bed once if you want to confirm load response."
+        )
+    if config.reader == "mock":
+        warnings.append("Mock reader is active; this does not verify Raspberry Pi GPIO wiring.")
+
+    return SensorCheckResult(
+        ok=True,
+        reader=config.reader,
+        samples_requested=requested,
+        samples_read=len(values),
+        raw_min=raw_min,
+        raw_max=raw_max,
+        raw_median=raw_median,
+        raw_span=raw_span,
+        weight_median_kg=weight_median_kg,
+        duration_sec=time.monotonic() - started,
+        message="sensor samples read successfully",
+        warnings=warnings,
+    )

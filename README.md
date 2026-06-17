@@ -24,7 +24,7 @@ Open the UI through Tailscale Serve:
 tailscale serve --bg 8080
 ```
 
-The Web UI can edit thresholds and timing settings, start/stop detection, run zero and scale calibration, and test webhook delivery. Use a Discord webhook URL with `webhook_payload_format=discord`, or set the format to `json` for a generic webhook endpoint.
+The Web UI can edit thresholds and timing settings, start/stop detection, check sensor reads, run zero and scale calibration, and test webhook delivery. Use a Discord webhook URL with `webhook_payload_format=discord`, or set the format to `json` for a generic webhook endpoint.
 
 The second-sleep alarm can be turned on or off from the Web UI. When `alarm_enabled` is on, `second_sleep_detected` sends a Discord webhook using `config/secrets.json` and pulses the Raspberry Pi buzzer. The default buzzer pin is `board.D13`; use an active buzzer or a suitable transistor/driver circuit for your buzzer module.
 
@@ -52,8 +52,11 @@ tailscale serve status
 
 ## Raspberry Pi setup
 
+For the full deployment flow, including copying files to the Pi, first sensor verification, calibration, and systemd setup, see [docs/raspberry_pi_deploy.md](docs/raspberry_pi_deploy.md).
+
 ```bash
 python3 -m pip install -r requirements-pi.txt
+python3 -m twodosumi check-sensor --config config/pi.aggregate.json --samples 10
 python3 -m twodosumi calibrate-zero --config config/pi.aggregate.json
 python3 -m twodosumi calibrate-scale --config config/pi.aggregate.json --known-kg 8
 python3 -m twodosumi run --config config/pi.aggregate.json --secrets config/secrets.json

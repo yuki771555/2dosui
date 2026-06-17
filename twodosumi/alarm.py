@@ -9,6 +9,8 @@ from .notifier import Notification, WebhookNotifier
 
 
 ALARM_EVENT = "second_sleep_detected"
+SCHEDULED_ALARM_EVENT = "scheduled_alarm"
+REALARM_EVENT = "bed_still_occupied_realarm"
 
 
 class Buzzer:
@@ -47,8 +49,9 @@ class Buzzer:
             self._pin.deinit()
             self._pin = None
 
-    def ring(self) -> None:
-        if not self.config.alarm_enabled or not self.config.buzzer_enabled:
+    def ring(self, *, enabled: bool | None = None) -> None:
+        alarm_enabled = self.config.alarm_enabled if enabled is None else enabled
+        if not alarm_enabled or not self.config.buzzer_enabled:
             return
         self._ensure_pin()
 
@@ -108,6 +111,59 @@ class SecondSleepAlarm:
 
         try:
             self.buzzer.ring()
+        except RuntimeError as exc:
+            warnings.append(str(exc))
+        return warnings
+
+
+class ScheduledAlarmOutput:
+    def __init__(self, config: AppConfig, secrets: Secrets) -> None:
+        self.config = config
+        alarm_config = replace(
+            config,
+            webhook_enabled=True,
+            webhook_events=[SCHEDULED_ALARM_EVENT, REALARM_EVENT],
+            webhook_payload_format="discord",
+        )
+        self.notifier = WebhookNotifier(alarm_config, secrets)
+        self.buzzer = Buzzer(config)
+
+    def __enter__(self) -> "ScheduledAlarmOutput":
+        self.buzzer.__enter__()
+        return self
+
+    def __exit__(self, *_args: object) -> None:
+        self.buzzer.__exit__(*_args)
+
+    def handle_event(
+        self,
+        *,
+        event: str,
+        state: str,
+        weight_kg: float,
+        smoothed_weight_kg: float,
+        timestamp: datetime,
+        message: str = "",
+    ) -> list[str]:
+        if not self.config.scheduled_alarm_enabled or event not in {SCHEDULED_ALARM_EVENT, REALARM_EVENT}:
+            return []
+
+        warnings: list[str] = []
+        notification = Notification(
+            event=event,
+            state=state,
+            weight_kg=weight_kg,
+            smoothed_weight_kg=smoothed_weight_kg,
+            timestamp=timestamp,
+            message=message,
+        )
+        try:
+            self.notifier.send(notification)
+        except RuntimeError as exc:
+            warnings.append(str(exc))
+
+        try:
+            self.buzzer.ring(enabled=self.config.scheduled_alarm_enabled)
         except RuntimeError as exc:
             warnings.append(str(exc))
         return warnings
