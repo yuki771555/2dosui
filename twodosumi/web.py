@@ -276,83 +276,131 @@ INDEX_HTML = r"""<!doctype html>
     :root {
       color-scheme: light;
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      --bg: #eef4f6;
+      --bg: #edf3f5;
       --panel: #ffffff;
-      --panel-soft: #f6fafb;
-      --ink: #17212b;
-      --muted: #647684;
-      --line: #d5e1e6;
-      --accent: #087f8c;
-      --accent-dark: #075f69;
-      --good: #18785b;
-      --warn: #b44733;
-      --shadow: 0 20px 58px rgba(23, 40, 52, 0.14);
+      --panel-soft: #f5f8fa;
+      --ink: #16202a;
+      --muted: #60717d;
+      --line: #d3dfe5;
+      --accent: #0b7f86;
+      --accent-dark: #075f65;
+      --accent-soft: #e4f4f4;
+      --good: #1a755b;
+      --warn: #b44a34;
+      --warm: #c4822b;
+      --shadow: 0 24px 62px rgba(23, 40, 52, 0.16);
+      --button-shadow: 0 10px 18px rgba(11, 127, 134, 0.2);
     }
     * { box-sizing: border-box; }
-    body { margin: 0; background: radial-gradient(circle at 20% 0%, #fbfefe 0, var(--bg) 38%, #dce8ec 100%); color: var(--ink); }
-    main { max-width: 1180px; margin: 0 auto; padding: 20px; }
+    body {
+      min-height: 100vh;
+      margin: 0;
+      background:
+        linear-gradient(rgba(255, 255, 255, 0.42) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.42) 1px, transparent 1px),
+        linear-gradient(140deg, #f8fbfc 0%, var(--bg) 47%, #dce8ec 100%);
+      background-size: 34px 34px, 34px 34px, auto;
+      color: var(--ink);
+    }
+    main { max-width: 1220px; margin: 0 auto; padding: 24px; }
     h1, h2 { margin: 0; letter-spacing: 0; }
-    h1 { font-size: clamp(28px, 5vw, 44px); line-height: 1; }
+    h1 { font-size: clamp(30px, 5vw, 48px); line-height: 0.98; }
     h2 { font-size: 16px; }
+    p { margin: 0; }
     .app-frame {
+      position: relative;
       overflow: hidden;
-      border: 1px solid rgba(126, 150, 162, 0.42);
+      border: 1px solid rgba(93, 117, 130, 0.36);
       border-radius: 8px;
-      background: rgba(255, 255, 255, 0.82);
-      box-shadow: 0 28px 80px rgba(26, 44, 57, 0.18);
-      backdrop-filter: blur(14px);
+      background: rgba(255, 255, 255, 0.9);
+      box-shadow: 0 28px 80px rgba(26, 44, 57, 0.2);
+      backdrop-filter: blur(16px);
+    }
+    .app-frame::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      border: 6px solid rgba(255, 255, 255, 0.64);
+      border-radius: inherit;
     }
     .app-bar {
+      position: relative;
+      z-index: 1;
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 12px;
-      min-height: 58px;
-      padding: 0 18px;
-      border-bottom: 1px solid rgba(126, 150, 162, 0.28);
-      background: rgba(255, 255, 255, 0.86);
+      min-height: 64px;
+      padding: 0 20px;
+      border-bottom: 1px solid rgba(126, 150, 162, 0.24);
+      background: linear-gradient(90deg, rgba(255, 255, 255, 0.96), rgba(245, 249, 250, 0.92));
     }
-    .brand { display: grid; gap: 2px; }
-    .brand strong { font-size: 17px; font-weight: 900; }
-    .brand span { color: var(--muted); font-size: 12px; font-weight: 700; }
-    .content { padding: 12px; }
-    .hero {
-      display: grid;
-      grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
-      gap: 12px;
-      min-height: 222px;
-      overflow: hidden;
-      border: 1px solid rgba(202, 218, 225, 0.9);
+    .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .brand-mark {
+      width: 34px;
+      height: 34px;
       border-radius: 8px;
       background:
-        linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(238, 248, 249, 0.96)),
-        linear-gradient(90deg, rgba(8, 127, 140, 0.09), transparent 58%);
+        linear-gradient(135deg, #0b7f86, #16323b 72%),
+        #16323b;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.24), 0 10px 20px rgba(11, 127, 134, 0.22);
+    }
+    .brand-text { display: grid; gap: 2px; min-width: 0; }
+    .brand strong { font-size: 17px; font-weight: 900; }
+    .brand span { color: var(--muted); font-size: 12px; font-weight: 750; }
+    .content { position: relative; z-index: 1; padding: 14px; }
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.18fr) minmax(300px, 0.82fr);
+      gap: 12px;
+      min-height: 238px;
+      overflow: hidden;
+      border: 1px solid rgba(194, 211, 218, 0.96);
+      border-radius: 8px;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(240, 249, 249, 0.98) 62%, rgba(247, 241, 232, 0.9)),
+        linear-gradient(90deg, rgba(11, 127, 134, 0.1), transparent 58%);
       box-shadow: var(--shadow);
     }
-    .hero-copy { display: flex; flex-direction: column; justify-content: space-between; gap: 24px; padding: 28px; }
-    .hero-title { display: grid; gap: 12px; }
-    .hero-sub { max-width: 44rem; color: var(--muted); font-size: 15px; line-height: 1.65; }
-    .hero-panel { display: grid; align-content: stretch; padding: 12px; }
+    .hero-copy { display: flex; flex-direction: column; justify-content: space-between; gap: 26px; padding: 30px; }
+    .hero-title { display: grid; gap: 13px; }
+    .hero-kicker {
+      width: fit-content;
+      padding: 5px 9px;
+      border: 1px solid rgba(11, 127, 134, 0.22);
+      border-radius: 999px;
+      background: rgba(228, 244, 244, 0.8);
+      color: var(--accent-dark);
+      font-size: 12px;
+      font-weight: 850;
+    }
+    .hero-sub { max-width: 44rem; color: var(--muted); font-size: 15px; line-height: 1.68; }
+    .hero-panel { display: grid; align-content: stretch; padding: 14px; }
     .live-card {
       display: grid;
       align-content: space-between;
       min-height: 100%;
-      padding: 18px;
-      border: 1px solid rgba(213, 225, 230, 0.9);
+      padding: 20px;
+      border: 1px solid rgba(202, 217, 224, 0.92);
       border-radius: 8px;
-      background: rgba(255, 255, 255, 0.72);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(247, 251, 252, 0.76)),
+        var(--panel);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
     }
-    .live-card span { color: var(--muted); font-size: 12px; font-weight: 800; }
-    .live-card strong { display: block; margin-top: 8px; font-size: 30px; line-height: 1; }
+    .live-card span { color: var(--muted); font-size: 12px; font-weight: 850; }
+    .live-card strong { display: block; margin-top: 8px; font-size: 32px; line-height: 1; overflow-wrap: anywhere; }
     .alarm-card {
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 14px;
-      padding: 14px;
-      border: 1px solid rgba(213, 225, 230, 0.9);
+      padding: 15px;
+      border: 1px solid rgba(202, 217, 224, 0.92);
+      border-left: 4px solid var(--accent);
       border-radius: 8px;
-      background: #fff;
+      background: linear-gradient(90deg, rgba(228, 244, 244, 0.72), #fff 42%);
     }
     .alarm-card strong { display: block; font-size: 15px; }
     .alarm-card span { display: block; margin-top: 3px; color: var(--muted); font-size: 12px; line-height: 1.45; }
@@ -368,7 +416,7 @@ INDEX_HTML = r"""<!doctype html>
       position: absolute;
       inset: 0;
       border-radius: 999px;
-      background: #c9d5db;
+      background: #c7d2d8;
       transition: background 160ms ease;
       cursor: pointer;
     }
@@ -384,16 +432,16 @@ INDEX_HTML = r"""<!doctype html>
       box-shadow: 0 3px 10px rgba(25, 42, 54, 0.2);
       transition: transform 160ms ease;
     }
-    .switch input:checked + .slider { background: var(--accent); }
+    .switch input:checked + .slider { background: linear-gradient(135deg, var(--accent), #167568); }
     .switch input:checked + .slider::after { transform: translateX(24px); }
     .top-actions { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: center; }
     .shell { display: grid; grid-template-columns: 0.82fr 1.18fr; gap: 12px; margin-top: 12px; }
     section {
-      background: rgba(255, 255, 255, 0.9);
+      background: rgba(255, 255, 255, 0.93);
       border: 1px solid rgba(216, 225, 231, 0.86);
       border-radius: 8px;
       padding: 16px;
-      box-shadow: 0 10px 26px rgba(31, 48, 63, 0.07);
+      box-shadow: 0 12px 28px rgba(31, 48, 63, 0.075);
     }
     .stack { display: grid; gap: 14px; align-content: start; }
     .section-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 14px; }
@@ -405,9 +453,16 @@ INDEX_HTML = r"""<!doctype html>
       padding: 14px;
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: var(--panel-soft);
+      background:
+        linear-gradient(180deg, #ffffff, var(--panel-soft));
     }
-    .setting-group h3 { margin: 0; font-size: 13px; letter-spacing: 0; }
+    .setting-group h3 {
+      margin: 0;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(211, 223, 229, 0.82);
+      font-size: 13px;
+      letter-spacing: 0;
+    }
     .setting-group-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
     label { display: grid; gap: 6px; font-size: 12px; color: var(--muted); font-weight: 650; }
     input, select {
@@ -415,9 +470,9 @@ INDEX_HTML = r"""<!doctype html>
       min-height: 44px;
       font: inherit;
       padding: 9px 10px;
-      border: 1px solid #becbd3;
+      border: 1px solid #bdcbd3;
       border-radius: 6px;
-      background: #fff;
+      background: rgba(255, 255, 255, 0.92);
       color: var(--ink);
       outline: none;
     }
@@ -430,22 +485,52 @@ INDEX_HTML = r"""<!doctype html>
       padding: 9px 13px;
       border: 0;
       border-radius: 6px;
-      background: var(--accent);
+      background: linear-gradient(180deg, #0d8a91, var(--accent-dark));
       color: white;
       cursor: pointer;
+      box-shadow: var(--button-shadow);
+      transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
     }
-    button:hover { background: var(--accent-dark); }
-    button.secondary { background: #506271; }
-    button.secondary:hover { background: #3f4e5a; }
-    button.warn { background: var(--warn); }
-    button.warn:hover { background: #923522; }
+    button:hover { transform: translateY(-1px); box-shadow: 0 12px 22px rgba(11, 127, 134, 0.24); }
+    button:active { transform: translateY(0); box-shadow: var(--button-shadow); }
+    button.secondary { background: linear-gradient(180deg, #5d6f7b, #455560); box-shadow: 0 10px 18px rgba(69, 85, 96, 0.18); }
+    button.secondary:hover { background: linear-gradient(180deg, #556671, #3f4e58); box-shadow: 0 12px 22px rgba(69, 85, 96, 0.22); }
+    button.warn { background: linear-gradient(180deg, #bd553d, #963927); box-shadow: 0 10px 18px rgba(180, 74, 52, 0.18); }
+    button.warn:hover { background: linear-gradient(180deg, #ad4c37, #873221); box-shadow: 0 12px 22px rgba(180, 74, 52, 0.22); }
     .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
     .status-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
-    .metric { background: var(--panel-soft); border: 1px solid var(--line); border-radius: 8px; padding: 12px; min-height: 76px; }
+    .metric {
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(180deg, #ffffff, var(--panel-soft));
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 13px;
+      min-height: 78px;
+    }
+    .metric::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--warm));
+    }
     .metric span { display: block; color: var(--muted); font-size: 12px; font-weight: 700; }
     .metric strong { display: block; margin-top: 5px; font-size: 20px; overflow-wrap: anywhere; }
-    .pill { display: inline-flex; align-items: center; min-height: 26px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 800; background: #e6f4ef; color: var(--good); }
-    .pill.off { background: #f5e9e6; color: var(--warn); }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 4px 11px;
+      border: 1px solid rgba(26, 117, 91, 0.18);
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 850;
+      background: #e5f4ee;
+      color: var(--good);
+      white-space: nowrap;
+    }
+    .pill.off { border-color: rgba(180, 74, 52, 0.18); background: #f6e9e5; color: var(--warn); }
     .status {
       max-height: 260px;
       overflow: auto;
@@ -456,7 +541,7 @@ INDEX_HTML = r"""<!doctype html>
       margin: 0;
       padding: 12px;
       border-radius: 8px;
-      background: #101923;
+      background: #111a22;
       color: #e7f0f5;
     }
     .message {
@@ -479,7 +564,8 @@ INDEX_HTML = r"""<!doctype html>
       main { padding: 10px; }
       .content { padding: 10px; }
       .app-bar { min-height: 54px; padding: 0 12px; }
-      .brand span { display: none; }
+      .brand-text span { display: none; }
+      .brand-mark { width: 30px; height: 30px; }
       .hero { grid-template-columns: 1fr; min-height: 0; }
       .hero-copy { padding: 20px; }
       .hero-panel { padding: 0 20px 20px; }
@@ -489,6 +575,7 @@ INDEX_HTML = r"""<!doctype html>
       .shell { grid-template-columns: 1fr; }
       .status-cards { grid-template-columns: 1fr; }
       button { flex: 1 1 132px; }
+      .alarm-card { align-items: flex-start; }
     }
   </style>
 </head>
@@ -496,13 +583,17 @@ INDEX_HTML = r"""<!doctype html>
 <main>
   <div class="app-frame">
     <div class="app-bar">
-      <div class="brand"><strong>2dosumi</strong><span>Bed sensor control</span></div>
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-text"><strong>2dosumi</strong><span>Bed sensor control</span></span>
+      </div>
       <span id="run-pill" class="pill off">停止中</span>
     </div>
     <div class="content">
       <header class="hero">
         <div class="hero-copy">
           <div class="hero-title">
+            <p class="hero-kicker">Raspberry Pi sleep monitor</p>
             <h1>2dosumi</h1>
             <p class="hero-sub">ベッド荷重の状態、通知、校正をひとつの画面で管理します。</p>
           </div>
@@ -515,11 +606,11 @@ INDEX_HTML = r"""<!doctype html>
         <div class="hero-panel">
           <div class="live-card">
             <div>
-              <span>current state</span>
+              <span>現在の状態</span>
               <strong id="hero-state">-</strong>
             </div>
             <div>
-              <span>smoothed weight</span>
+              <span>平滑重量</span>
               <strong id="hero-weight">-</strong>
             </div>
           </div>
