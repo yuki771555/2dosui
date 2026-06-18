@@ -4,8 +4,14 @@ set -euo pipefail
 SERVICE_NAME="${SERVICE_NAME:-twodosumi-web}"
 APP_DIR="${APP_DIR:-/home/yuki/2dosumi}"
 APP_USER="${APP_USER:-yuki}"
-PYTHON_BIN="${PYTHON_BIN:-/usr/bin/python3}"
+PYTHON_BIN="${PYTHON_BIN:-${APP_DIR}/.venv/bin/python}"
 PORT="${PORT:-8080}"
+
+if [ ! -x "${PYTHON_BIN}" ]; then
+  echo "Python executable not found: ${PYTHON_BIN}" >&2
+  echo "Create the virtual environment first: python3 -m venv ${APP_DIR}/.venv" >&2
+  exit 1
+fi
 
 sudo tee "/etc/systemd/system/${SERVICE_NAME}.service" >/dev/null <<SERVICE
 [Unit]
