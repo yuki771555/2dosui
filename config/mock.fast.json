@@ -23,6 +23,8 @@
   "buzzer_duration_sec": 5.0,
   "buzzer_pulse_sec": 0.25,
   "scheduled_alarm_enabled": true,
+  "wake_mission_enabled": true,
+  "wake_mission_required_off_bed_sec": 30.0,
   "scheduled_alarms": [
     {
       "id": "morning",

@@ -43,6 +43,8 @@ class AppConfig:
     scheduled_alarm_enabled: bool = True
     scheduled_alarms: list[ScheduledAlarmConfig] = field(default_factory=list)
     bed_recheck_minutes: float = 5.0
+    wake_mission_enabled: bool = True
+    wake_mission_required_off_bed_sec: float = 30.0
     webhook_enabled: bool = False
     webhook_events: list[str] = field(default_factory=lambda: ["second_sleep_detected"])
     webhook_payload_format: str = "discord"
@@ -148,6 +150,8 @@ def validate_config(config: AppConfig) -> list[str]:
         errors.append("buzzer_pulse_sec must be greater than 0")
     if config.bed_recheck_minutes <= 0:
         errors.append("bed_recheck_minutes must be greater than 0")
+    if config.wake_mission_required_off_bed_sec <= 0:
+        errors.append("wake_mission_required_off_bed_sec must be greater than 0")
     if config.webhook_timeout_sec <= 0:
         errors.append("webhook_timeout_sec must be greater than 0")
     if config.webhook_payload_format not in {"discord", "json"}:

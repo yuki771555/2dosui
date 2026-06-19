@@ -42,12 +42,14 @@ class ConfigAndSensorTests(unittest.TestCase):
         config = AppConfig(
             reader="mock",
             log_path="logs/a.csv",
+            wake_mission_required_off_bed_sec=0,
             scheduled_alarms=[
                 ScheduledAlarmConfig(id="morning", time="25:00", weekdays=[7]),
                 ScheduledAlarmConfig(id="morning", time="07:00"),
             ],
         )
         errors = validate_config(config)
+        self.assertIn("wake_mission_required_off_bed_sec must be greater than 0", errors)
         self.assertIn("duplicate scheduled alarm id: morning", errors)
         self.assertIn("scheduled alarm morning time must be HH:MM", errors)
         self.assertIn("scheduled alarm morning weekdays must be 0 through 6", errors)
