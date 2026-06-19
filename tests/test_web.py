@@ -32,6 +32,8 @@ class WebTests(unittest.TestCase):
                         "buzzer_pin": "D13",
                         "scheduled_alarm_enabled": True,
                         "bed_recheck_minutes": 5,
+                        "wake_mission_enabled": True,
+                        "wake_mission_required_off_bed_sec": 30,
                         "scheduled_alarms": [
                             {
                                 "id": "morning",
@@ -57,6 +59,8 @@ class WebTests(unittest.TestCase):
             self.assertEqual(settings["buzzer_pin"], "D13")
             self.assertTrue(settings["scheduled_alarm_enabled"])
             self.assertEqual(settings["bed_recheck_minutes"], 5)
+            self.assertTrue(settings["wake_mission_enabled"])
+            self.assertEqual(settings["wake_mission_required_off_bed_sec"], 30)
             self.assertEqual(settings["scheduled_alarms"][0]["id"], "morning")
             self.assertEqual(settings["scheduled_alarms"][0]["time"], "07:00")
             self.assertEqual(settings["scheduled_alarms"][0]["weekdays"], [0, 1, 2, 3, 4])

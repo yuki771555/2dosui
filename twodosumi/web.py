@@ -47,6 +47,8 @@ EDITABLE_CONFIG_FIELDS = {
     "scheduled_alarm_enabled",
     "scheduled_alarms",
     "bed_recheck_minutes",
+    "wake_mission_enabled",
+    "wake_mission_required_off_bed_sec",
     "webhook_enabled",
     "webhook_events",
     "webhook_payload_format",
@@ -105,9 +107,16 @@ def _coerce_config_value(field: str, value: Any) -> Any:
         "buzzer_duration_sec",
         "buzzer_pulse_sec",
         "bed_recheck_minutes",
+        "wake_mission_required_off_bed_sec",
         "webhook_timeout_sec",
     }
-    bool_fields = {"alarm_enabled", "buzzer_enabled", "scheduled_alarm_enabled", "webhook_enabled"}
+    bool_fields = {
+        "alarm_enabled",
+        "buzzer_enabled",
+        "scheduled_alarm_enabled",
+        "wake_mission_enabled",
+        "webhook_enabled",
+    }
     list_fields = {"webhook_events"}
 
     if field in int_fields:
@@ -315,21 +324,56 @@ INDEX_HTML = r"""<!doctype html>
   <style>
     :root {
       color-scheme: light;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", system-ui, sans-serif;
       --bg: #f2f2f7;
       --panel: #ffffff;
-      --panel-soft: #f8f8fb;
-      --ink: #111114;
-      --muted: #6c6c70;
-      --line: #d8d8df;
-      --accent: #ff9500;
-      --accent-dark: #c76500;
-      --accent-soft: #fff2df;
+      --panel-soft: #f2f2f7;
+      --panel-glass: rgba(255, 255, 255, 0.78);
+      --bar-glass: rgba(248, 248, 248, 0.86);
+      --ink: #1d1d1f;
+      --muted: #6e6e73;
+      --line: rgba(60, 60, 67, 0.18);
+      --accent: #007aff;
+      --accent-dark: #005ecb;
+      --accent-soft: rgba(0, 122, 255, 0.11);
       --good: #34c759;
       --warn: #ff3b30;
       --blue: #007aff;
-      --shadow: 0 18px 48px rgba(22, 22, 28, 0.12);
-      --button-shadow: 0 10px 20px rgba(255, 149, 0, 0.24);
+      --on-accent: #ffffff;
+      --shadow: 0 22px 48px rgba(0, 0, 0, 0.08);
+      --button-shadow: none;
+      --hero-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.82));
+      --status-bg: #101828;
+      --status-ink: #eef4ff;
+      --surface-shadow: 0 1px 0 rgba(0, 0, 0, 0.03), 0 10px 30px rgba(0, 0, 0, 0.04);
+      --segment-bg: rgba(118, 118, 128, 0.12);
+      --segment-active: rgba(255, 255, 255, 0.96);
+    }
+    [data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #000000;
+      --panel: #1c1c1e;
+      --panel-soft: #2c2c2e;
+      --panel-glass: rgba(28, 28, 30, 0.82);
+      --bar-glass: rgba(28, 28, 30, 0.84);
+      --ink: #f5f5f7;
+      --muted: #a1a1a6;
+      --line: rgba(84, 84, 88, 0.58);
+      --accent: #0a84ff;
+      --accent-dark: #64b5ff;
+      --accent-soft: rgba(10, 132, 255, 0.18);
+      --good: #30d158;
+      --warn: #ff453a;
+      --blue: #0a84ff;
+      --on-accent: #ffffff;
+      --shadow: 0 24px 58px rgba(0, 0, 0, 0.5);
+      --button-shadow: none;
+      --hero-bg: linear-gradient(180deg, rgba(28, 28, 30, 0.96), rgba(28, 28, 30, 0.84));
+      --status-bg: #111113;
+      --status-ink: #f5f5f7;
+      --surface-shadow: 0 1px 0 rgba(255, 255, 255, 0.04), 0 12px 34px rgba(0, 0, 0, 0.22);
+      --segment-bg: rgba(118, 118, 128, 0.24);
+      --segment-active: rgba(99, 99, 102, 0.86);
     }
     * { box-sizing: border-box; }
     html { scroll-behavior: smooth; }
@@ -338,6 +382,7 @@ INDEX_HTML = r"""<!doctype html>
       margin: 0;
       background: var(--bg);
       color: var(--ink);
+      transition: background 260ms ease, color 260ms ease;
     }
     main { width: min(100%, 1180px); margin: 0 auto; padding: 18px; }
     h1, h2 { margin: 0; letter-spacing: 0; }
@@ -345,14 +390,20 @@ INDEX_HTML = r"""<!doctype html>
     h2 { font-size: 16px; }
     p { margin: 0; }
     a, button, input, select, strong, span { min-width: 0; }
+    button { outline: none; }
+    button:focus-visible, input:focus-visible, select:focus-visible {
+      outline: 3px solid color-mix(in srgb, var(--accent) 32%, transparent);
+      outline-offset: 2px;
+    }
     .app-frame {
       position: relative;
       overflow: clip;
-      border: 1px solid rgba(216, 216, 223, 0.88);
-      border-radius: 8px;
-      background: rgba(255, 255, 255, 0.76);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--panel-glass);
       box-shadow: var(--shadow);
-      backdrop-filter: blur(20px);
+      backdrop-filter: blur(28px) saturate(1.6);
+      transition: background 260ms ease, border-color 260ms ease, box-shadow 260ms ease;
     }
     .app-frame::before { content: none; }
     .app-bar {
@@ -364,64 +415,99 @@ INDEX_HTML = r"""<!doctype html>
       gap: 12px;
       min-height: 64px;
       padding: 0 20px;
-      border-bottom: 1px solid rgba(216, 216, 223, 0.76);
-      background: rgba(255, 255, 255, 0.82);
-      backdrop-filter: blur(18px);
+      border-bottom: 1px solid var(--line);
+      background: var(--bar-glass);
+      backdrop-filter: blur(24px) saturate(1.45);
     }
     .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
     .brand-mark {
       width: 34px;
       height: 34px;
-      border-radius: 8px;
-      background: linear-gradient(135deg, var(--accent), #ffcc00);
-      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.48), 0 10px 20px rgba(255, 149, 0, 0.2);
+      border-radius: 10px;
+      background: linear-gradient(145deg, #5ac8fa, var(--accent));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.46);
     }
     .brand-text { display: grid; gap: 2px; min-width: 0; }
     .brand strong { font-size: 17px; font-weight: 900; }
     .brand span { color: var(--muted); font-size: 12px; font-weight: 750; }
+    .app-tools { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; }
     .content { position: relative; z-index: 1; padding: 12px; }
-    .quick-tabs {
+    .tab-bar {
       position: sticky;
       top: 0;
       z-index: 4;
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 6px;
-      padding: 8px;
+      display: flex;
+      gap: 2px;
+      padding: 3px;
       margin-bottom: 10px;
-      border: 1px solid rgba(216, 216, 223, 0.78);
-      border-radius: 8px;
-      background: rgba(255, 255, 255, 0.84);
-      backdrop-filter: blur(16px);
+      overflow-x: auto;
+      border: 0;
+      border-radius: 12px;
+      background: var(--segment-bg);
+      backdrop-filter: blur(18px) saturate(1.45);
+      scrollbar-width: none;
     }
-    .quick-tabs a {
-      display: grid;
+    .tab-bar::-webkit-scrollbar { display: none; }
+    .tab-button {
+      display: inline-grid;
+      grid-template-columns: auto auto;
       place-items: center;
-      min-height: 34px;
-      border-radius: 7px;
-      color: var(--ink);
-      text-decoration: none;
+      gap: 7px;
+      flex: 1 1 0;
+      min-width: 0;
+      min-height: 44px;
+      padding: 8px 14px;
+      border: 0;
+      border-radius: 10px;
+      background: transparent;
+      color: var(--muted);
+      box-shadow: none;
       font-size: 13px;
-      font-weight: 850;
+      font-weight: 760;
+      transition: background 180ms ease, color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
     }
-    .quick-tabs a:hover { background: var(--panel-soft); }
+    .tab-button:hover { transform: none; background: color-mix(in srgb, var(--segment-active) 68%, transparent); box-shadow: none; }
+    .tab-button.active {
+      background: var(--segment-active);
+      color: var(--ink);
+      box-shadow: 0 2px 7px rgba(0, 0, 0, 0.13);
+    }
+    .tab-button.active .tab-icon { transform: scale(1.08); }
+    .tab-icon { transition: transform 180ms cubic-bezier(.2, .9, .2, 1); }
+    .theme-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 44px;
+      padding: 7px 11px;
+      border: 0;
+      border-radius: 999px;
+      background: var(--segment-bg);
+      color: var(--ink);
+      box-shadow: none;
+      white-space: nowrap;
+      backdrop-filter: blur(16px) saturate(1.35);
+    }
+    .theme-toggle:hover { transform: none; background: color-mix(in srgb, var(--segment-active) 72%, transparent); box-shadow: none; }
+    .tab-icon { font-size: 14px; line-height: 1; }
+    body:not([data-tab="overview"]) .hero { display: none; }
     .hero {
       display: grid;
       grid-template-columns: minmax(0, 1.18fr) minmax(min(100%, 280px), 0.82fr);
       gap: 12px;
       min-height: 210px;
       overflow: hidden;
-      border: 1px solid rgba(216, 216, 223, 0.96);
-      border-radius: 8px;
-      background: linear-gradient(135deg, #ffffff, #fff7ed 64%, #eef7ff);
-      box-shadow: 0 10px 26px rgba(22, 22, 28, 0.08);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--hero-bg);
+      box-shadow: var(--surface-shadow);
     }
     .hero-copy { display: flex; flex-direction: column; justify-content: space-between; gap: 22px; padding: 26px; }
     .hero-title { display: grid; gap: 13px; }
     .hero-kicker {
       width: fit-content;
       padding: 5px 9px;
-      border: 1px solid rgba(255, 149, 0, 0.28);
+      border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--line));
       border-radius: 999px;
       background: var(--accent-soft);
       color: var(--accent-dark);
@@ -435,10 +521,10 @@ INDEX_HTML = r"""<!doctype html>
       align-content: space-between;
       min-height: 100%;
       padding: 20px;
-      border: 1px solid rgba(216, 216, 223, 0.92);
-      border-radius: 8px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
       background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(247, 251, 252, 0.76)),
+        linear-gradient(180deg, color-mix(in srgb, var(--panel) 86%, transparent), color-mix(in srgb, var(--panel-soft) 76%, transparent)),
         var(--panel);
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
     }
@@ -450,10 +536,12 @@ INDEX_HTML = r"""<!doctype html>
       align-items: center;
       gap: 14px;
       padding: 15px;
-      border: 1px solid rgba(216, 216, 223, 0.92);
-      border-radius: 8px;
-      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--panel);
+      transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, background 260ms ease;
     }
+    .alarm-card:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--accent) 22%, var(--line)); box-shadow: var(--surface-shadow); }
     .alarm-card strong { display: block; font-size: 15px; }
     .alarm-card span { display: block; margin-top: 3px; color: var(--muted); font-size: 12px; line-height: 1.45; }
     .alarm-preview-list { display: grid; gap: 8px; margin-top: 10px; }
@@ -464,9 +552,11 @@ INDEX_HTML = r"""<!doctype html>
       align-items: center;
       padding: 12px;
       border: 1px solid var(--line);
-      border-radius: 8px;
-      background: #fff;
+      border-radius: 13px;
+      background: var(--panel);
+      transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
     }
+    .alarm-preview-item:hover { transform: none; border-color: color-mix(in srgb, var(--blue) 24%, var(--line)); box-shadow: var(--surface-shadow); }
     .alarm-preview-time { font-size: 22px; font-weight: 900; white-space: nowrap; }
     .alarm-preview-meta { display: grid; gap: 2px; min-width: 0; }
     .alarm-preview-meta strong { overflow-wrap: anywhere; }
@@ -476,52 +566,63 @@ INDEX_HTML = r"""<!doctype html>
       place-items: center;
       min-height: 44px;
       margin-top: 10px;
-      border-radius: 7px;
-      background: var(--panel-soft);
+      width: 100%;
+      border: 0;
+      border-radius: 12px;
+      background: var(--segment-bg);
       color: var(--blue);
       font-weight: 850;
       text-decoration: none;
+      box-shadow: none;
     }
-    .link-button:hover { background: #eef5ff; }
+    .link-button:hover { transform: none; background: var(--accent-soft); box-shadow: none; }
     .switch {
       position: relative;
       display: inline-flex;
-      width: 58px;
-      min-width: 58px;
-      height: 34px;
+      width: 52px;
+      min-width: 52px;
+      height: 32px;
     }
     .switch input { position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
     .slider {
       position: absolute;
       inset: 0;
       border-radius: 999px;
-      background: #c7d2d8;
+      background: #e9e9eb;
       transition: background 160ms ease;
       cursor: pointer;
     }
+    [data-theme="dark"] .slider { background: #39393d; }
     .slider::after {
       content: "";
       position: absolute;
       width: 28px;
       height: 28px;
-      top: 3px;
-      left: 3px;
+      top: 2px;
+      left: 2px;
       border-radius: 50%;
       background: #fff;
-      box-shadow: 0 3px 10px rgba(25, 42, 54, 0.2);
-      transition: transform 160ms ease;
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.22);
+      transition: transform 180ms cubic-bezier(.2, .9, .2, 1), box-shadow 180ms ease;
     }
     .switch input:checked + .slider { background: var(--good); }
-    .switch input:checked + .slider::after { transform: translateX(24px); }
+    .switch input:checked + .slider::after { transform: translateX(20px); }
     .top-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: 10px; align-items: center; }
-    .shell { display: grid; grid-template-columns: minmax(280px, 0.82fr) minmax(0, 1.18fr); gap: 12px; margin-top: 12px; }
+    .tab-panels { display: grid; margin-top: 12px; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: grid; gap: 12px; animation: panelIn 260ms ease both; }
+    .overview-grid { display: grid; grid-template-columns: minmax(280px, 0.76fr) minmax(0, 1.24fr); gap: 12px; align-items: start; }
+    .overview-sidebar { display: grid; gap: 12px; }
+    .overview-status { min-height: 100%; }
     section {
-      background: rgba(255, 255, 255, 0.93);
-      border: 1px solid rgba(216, 216, 223, 0.86);
-      border-radius: 8px;
+      background: var(--panel-glass);
+      border: 1px solid var(--line);
+      border-radius: 16px;
       padding: 16px;
-      box-shadow: 0 10px 24px rgba(22, 22, 28, 0.06);
+      box-shadow: var(--surface-shadow);
+      transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, background 260ms ease;
     }
+    section:hover { border-color: color-mix(in srgb, var(--accent) 14%, var(--line)); box-shadow: var(--surface-shadow); }
     section, .setting-group, .alarm-card, .metric, .live-card { min-width: 0; }
     section { scroll-margin-top: 82px; }
     .stack { display: grid; gap: 14px; align-content: start; }
@@ -532,8 +633,8 @@ INDEX_HTML = r"""<!doctype html>
       z-index: 3;
       margin: -16px -16px 14px;
       padding: 14px 16px;
-      border-bottom: 1px solid rgba(216, 216, 223, 0.76);
-      background: rgba(255, 255, 255, 0.92);
+      border-bottom: 1px solid var(--line);
+      background: var(--bar-glass);
       backdrop-filter: blur(16px);
     }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 184px), 1fr)); gap: 12px; }
@@ -543,14 +644,16 @@ INDEX_HTML = r"""<!doctype html>
       gap: 12px;
       padding: 14px;
       border: 1px solid var(--line);
-      border-radius: 8px;
-      background: #fff;
+      border-radius: 14px;
+      background: var(--panel);
+      transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, background 260ms ease;
     }
+    .setting-group:hover { transform: none; border-color: color-mix(in srgb, var(--blue) 16%, var(--line)); box-shadow: var(--surface-shadow); }
     .setting-group.wide { grid-column: 1 / -1; }
     .setting-group h3 {
       margin: 0;
       padding-bottom: 8px;
-      border-bottom: 1px solid rgba(216, 216, 223, 0.82);
+      border-bottom: 1px solid var(--line);
       font-size: 15px;
       letter-spacing: 0;
     }
@@ -563,8 +666,8 @@ INDEX_HTML = r"""<!doctype html>
       align-items: center;
       padding: 14px;
       border: 1px solid var(--line);
-      border-radius: 8px;
-      background: #fff;
+      border-radius: 14px;
+      background: var(--panel);
       overflow: hidden;
     }
     .scheduled-time-block { display: flex; align-items: center; gap: 13px; min-width: 0; flex-wrap: wrap; }
@@ -581,7 +684,7 @@ INDEX_HTML = r"""<!doctype html>
     .scheduled-detail { display: grid; gap: 9px; min-width: 0; }
     .scheduled-detail .scheduled-label {
       min-height: 38px;
-      border-radius: 8px;
+      border-radius: 11px;
       background: var(--panel-soft);
     }
     .weekday-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-width: 0; }
@@ -608,9 +711,9 @@ INDEX_HTML = r"""<!doctype html>
     }
     .weekday-row label:has(input) { cursor: pointer; }
     .weekday-row label:has(input:checked) {
-      border-color: rgba(52, 199, 89, 0.32);
-      background: #eaf8ef;
-      color: #188a3d;
+      border-color: color-mix(in srgb, var(--good) 34%, var(--line));
+      background: color-mix(in srgb, var(--good) 14%, var(--panel));
+      color: var(--good);
     }
     label { display: grid; gap: 6px; font-size: 12px; color: var(--muted); font-weight: 650; min-width: 0; }
     input, select {
@@ -618,13 +721,14 @@ INDEX_HTML = r"""<!doctype html>
       min-height: 44px;
       font: inherit;
       padding: 9px 10px;
-      border: 1px solid #d1d1d6;
-      border-radius: 6px;
-      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: color-mix(in srgb, var(--panel) 88%, transparent);
       color: var(--ink);
       outline: none;
+      transition: border-color 160ms ease, box-shadow 160ms ease, background 260ms ease;
     }
-    input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255, 149, 0, 0.16); }
+    input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
     input[type="checkbox"] { width: 20px; min-height: 20px; accent-color: var(--good); }
     input[type="time"] { min-width: 0; }
     button {
@@ -633,37 +737,39 @@ INDEX_HTML = r"""<!doctype html>
       font-weight: 750;
       padding: 9px 13px;
       border: 0;
-      border-radius: 6px;
-      background: linear-gradient(180deg, #ffa724, var(--accent));
-      color: white;
+      border-radius: 11px;
+      background: var(--accent);
+      color: var(--on-accent);
       cursor: pointer;
       box-shadow: var(--button-shadow);
-      transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
+      transition: transform 140ms ease, box-shadow 140ms ease, filter 140ms ease, background 140ms ease;
     }
-    button:hover { transform: translateY(-1px); box-shadow: 0 12px 22px rgba(255, 149, 0, 0.26); }
-    button:active { transform: translateY(0); box-shadow: var(--button-shadow); }
-    button.secondary { background: linear-gradient(180deg, #178cff, var(--blue)); box-shadow: 0 10px 18px rgba(0, 122, 255, 0.18); }
-    button.secondary:hover { background: linear-gradient(180deg, #0b80f5, #006edc); box-shadow: 0 12px 22px rgba(0, 122, 255, 0.22); }
-    button.warn { background: linear-gradient(180deg, #ff5b52, var(--warn)); box-shadow: 0 10px 18px rgba(255, 59, 48, 0.18); }
-    button.warn:hover { background: linear-gradient(180deg, #f84d45, #e22e25); box-shadow: 0 12px 22px rgba(255, 59, 48, 0.22); }
+    button:hover { transform: none; filter: brightness(0.97); box-shadow: none; }
+    button:active { transform: translateY(1px); box-shadow: var(--button-shadow); }
+    button.secondary { background: var(--segment-bg); color: var(--blue); box-shadow: none; }
+    button.secondary:hover { box-shadow: none; }
+    button.warn { background: var(--warn); color: var(--on-accent); box-shadow: none; }
+    button.warn:hover { box-shadow: none; }
     .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; min-width: 0; }
     .actions button { flex: 1 1 150px; }
     .status-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); gap: 10px; margin-bottom: 12px; }
     .metric {
       position: relative;
       overflow: hidden;
-      background: #fff;
+      background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: 8px;
+      border-radius: 14px;
       padding: 13px;
       min-height: 78px;
+      transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, background 260ms ease;
     }
+    .metric:hover { transform: translateY(-1px); box-shadow: var(--surface-shadow); }
     .metric::before {
       content: "";
       position: absolute;
       inset: 0 0 auto;
-      height: 3px;
-      background: linear-gradient(90deg, var(--accent), var(--blue));
+      height: 2px;
+      background: var(--accent);
     }
     .metric span { display: block; color: var(--muted); font-size: 12px; font-weight: 700; }
     .metric strong { display: block; margin-top: 5px; font-size: 20px; overflow-wrap: anywhere; }
@@ -676,11 +782,13 @@ INDEX_HTML = r"""<!doctype html>
       border-radius: 999px;
       font-size: 12px;
       font-weight: 850;
-      background: #eaf8ef;
+      background: color-mix(in srgb, var(--good) 14%, var(--panel));
       color: var(--good);
       white-space: nowrap;
     }
-    .pill.off { border-color: rgba(255, 59, 48, 0.18); background: #fff0ef; color: var(--warn); }
+    .pill.off { border-color: color-mix(in srgb, var(--warn) 20%, var(--line)); background: color-mix(in srgb, var(--warn) 10%, var(--panel)); color: var(--warn); }
+    [data-theme="dark"] .pill { border-color: rgba(76, 217, 100, 0.24); background: rgba(76, 217, 100, 0.14); }
+    [data-theme="dark"] .pill.off { border-color: rgba(255, 105, 97, 0.24); background: rgba(255, 105, 97, 0.14); }
     .status {
       max-height: 260px;
       overflow: auto;
@@ -690,9 +798,9 @@ INDEX_HTML = r"""<!doctype html>
       line-height: 1.55;
       margin: 0;
       padding: 12px;
-      border-radius: 8px;
-      background: #111a22;
-      color: #e7f0f5;
+      border-radius: 14px;
+      background: var(--status-bg);
+      color: var(--status-ink);
     }
     .sensor-check-result {
       display: grid;
@@ -700,15 +808,17 @@ INDEX_HTML = r"""<!doctype html>
       margin-top: 12px;
       padding: 12px;
       border: 1px solid var(--line);
-      border-radius: 8px;
+      border-radius: 14px;
       background: var(--panel-soft);
       color: var(--ink);
       font-size: 13px;
       line-height: 1.5;
       overflow-wrap: anywhere;
     }
-    .sensor-check-result.ok { border-color: rgba(52, 199, 89, 0.28); background: #f3fbf5; }
-    .sensor-check-result.fail { border-color: rgba(255, 59, 48, 0.28); background: #fff5f4; }
+    .sensor-check-result.ok { border-color: color-mix(in srgb, var(--good) 28%, var(--line)); background: color-mix(in srgb, var(--good) 9%, var(--panel)); }
+    .sensor-check-result.fail { border-color: color-mix(in srgb, var(--warn) 28%, var(--line)); background: color-mix(in srgb, var(--warn) 9%, var(--panel)); }
+    [data-theme="dark"] .sensor-check-result.ok { background: rgba(76, 217, 100, 0.12); }
+    [data-theme="dark"] .sensor-check-result.fail { background: rgba(255, 105, 97, 0.12); }
     .message {
       position: sticky;
       bottom: 12px;
@@ -716,17 +826,30 @@ INDEX_HTML = r"""<!doctype html>
       min-height: 28px;
       margin: 14px 0 0;
       padding: 8px 12px;
-      border-radius: 8px;
+      border-radius: 14px;
       background: rgba(23, 33, 43, 0.92);
       color: white;
       font-weight: 750;
       opacity: 0;
-      transition: opacity 160ms ease;
+      transform: translateY(8px) scale(0.985);
+      transition: opacity 180ms ease, transform 220ms cubic-bezier(.2, .9, .2, 1);
     }
-    .message.show { opacity: 1; }
+    .message.show { opacity: 1; transform: translateY(0) scale(1); }
     .full { grid-column: 1 / -1; }
+    @keyframes panelIn {
+      from { opacity: 0; transform: translateY(8px) scale(0.995); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.001ms !important;
+      }
+    }
     @media (max-width: 980px) {
-      .shell { grid-template-columns: 1fr; }
+      .overview-grid { grid-template-columns: 1fr; }
       .scheduled-row { grid-template-columns: minmax(0, 1fr); align-items: stretch; }
       .scheduled-row .warn { width: 100%; }
     }
@@ -736,6 +859,7 @@ INDEX_HTML = r"""<!doctype html>
       .app-bar { min-height: 54px; padding: 0 12px; }
       .brand-text span { display: none; }
       .brand-mark { width: 30px; height: 30px; }
+      .theme-toggle { padding: 7px 9px; }
       .hero { grid-template-columns: 1fr; min-height: 0; }
       .hero-copy { padding: 20px; }
       .hero-panel { padding: 0 20px 20px; }
@@ -749,15 +873,34 @@ INDEX_HTML = r"""<!doctype html>
     @media (max-width: 520px) {
       main { padding: 0; }
       .app-frame { border-radius: 0; border-left: 0; border-right: 0; }
-      .quick-tabs { grid-template-columns: repeat(2, 1fr); }
+      .tab-bar {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        border-left: 0;
+        border-right: 0;
+        border-radius: 0;
+        overflow: visible;
+      }
+      .tab-button { padding: 8px 6px; gap: 4px; font-size: 12px; }
       .hero-copy { padding: 18px; }
       .hero-panel { padding: 0 18px 18px; }
       .top-actions { grid-template-columns: 1fr; }
       .section-head, .alarm-card { align-items: stretch; flex-direction: column; }
+      .section-head.sticky {
+        position: static;
+        top: auto;
+      }
       .section-head.sticky .actions { width: 100%; }
       .scheduled-time-block { justify-content: space-between; }
       .scheduled-time-block .scheduled-time { flex: 1; font-size: 26px; }
       .status { max-height: 190px; }
+    }
+    @media (max-width: 380px) {
+      .tab-icon { display: none; }
+      .tab-button { font-size: 12px; }
+      .theme-toggle span:last-child { display: none; }
+      section { padding: 13px; }
+      .section-head.sticky { margin: -13px -13px 13px; padding: 13px; }
     }
   </style>
 </head>
@@ -769,14 +912,17 @@ INDEX_HTML = r"""<!doctype html>
         <span class="brand-mark" aria-hidden="true"></span>
         <span class="brand-text"><strong>2dosumi</strong><span>Bed sensor control</span></span>
       </div>
-      <span id="run-pill" class="pill off">停止中</span>
+      <div class="app-tools">
+        <button id="theme-toggle" class="theme-toggle" type="button" onclick="toggleTheme()" aria-label="ダークモード切り替え"><span id="theme-icon">☀</span><span id="theme-label">Light</span></button>
+        <span id="run-pill" class="pill off">停止中</span>
+      </div>
     </div>
     <div class="content">
-      <nav class="quick-tabs" aria-label="画面移動">
-        <a href="#alarms">アラーム</a>
-        <a href="#status-panel">状態</a>
-        <a href="#settings-panel">設定</a>
-        <a href="#calibration-panel">校正</a>
+      <nav class="tab-bar" aria-label="画面切り替え">
+        <button class="tab-button active" type="button" data-tab="overview" aria-selected="true"><span class="tab-icon">●</span>概要</button>
+        <button class="tab-button" type="button" data-tab="alarms" aria-selected="false"><span class="tab-icon">◐</span>アラーム</button>
+        <button class="tab-button" type="button" data-tab="calibration" aria-selected="false"><span class="tab-icon">◇</span>校正</button>
+        <button class="tab-button" type="button" data-tab="settings" aria-selected="false"><span class="tab-icon">□</span>設定</button>
       </nav>
       <header class="hero">
         <div class="hero-copy">
@@ -805,22 +951,67 @@ INDEX_HTML = r"""<!doctype html>
         </div>
       </header>
 
-      <div class="shell">
-        <div class="stack" id="alarms">
+      <div class="tab-panels">
+        <div class="tab-panel active" data-panel="overview">
+          <div class="overview-grid">
+            <div class="overview-sidebar">
+              <section>
+                <div class="section-head"><h2>クイック操作</h2></div>
+                <div class="actions">
+                  <button onclick="post('/api/run/start')">検知開始</button>
+                  <button class="warn" onclick="post('/api/run/stop')">検知停止</button>
+                  <button class="secondary" onclick="loadStatus()">状態更新</button>
+                </div>
+              </section>
+              <section>
+                <div class="section-head"><h2>次のアラーム</h2><span id="scheduled-alarm-pill" class="pill off">OFF</span></div>
+                <div class="alarm-card">
+                  <div>
+                    <strong>時刻アラーム</strong>
+                    <span id="scheduled-alarm-next">次のアラームは未設定です。</span>
+                  </div>
+                  <label class="switch" aria-label="時刻アラーム">
+                    <input id="quick_scheduled_alarm_enabled" type="checkbox" onchange="toggleScheduledAlarm(this.checked)">
+                    <span class="slider"></span>
+                  </label>
+                </div>
+                <div id="alarm-preview-list" class="alarm-preview-list"></div>
+              </section>
+            </div>
+
+            <section class="overview-status" id="status-panel">
+              <div class="section-head">
+                <h2>状態</h2>
+                <span id="status-time" class="pill off">未取得</span>
+              </div>
+              <div class="status-cards">
+                <div class="metric"><span>state</span><strong id="metric-state">-</strong></div>
+                <div class="metric"><span>event</span><strong id="metric-event">-</strong></div>
+                <div class="metric"><span>weight</span><strong id="metric-weight">-</strong></div>
+                <div class="metric"><span>process</span><strong id="metric-process">-</strong></div>
+                <div class="metric"><span>next alarm</span><strong id="metric-next-alarm">-</strong></div>
+                <div class="metric"><span>recheck</span><strong id="metric-recheck">-</strong></div>
+              </div>
+              <pre id="status" class="status">未取得</pre>
+            </section>
+          </div>
+        </div>
+
+        <div class="tab-panel" data-panel="alarms">
+          <div class="stack" id="alarms">
           <section>
-            <div class="section-head"><h2>時刻アラーム</h2><span id="scheduled-alarm-pill" class="pill off">OFF</span></div>
+            <div class="section-head"><h2>時刻アラーム</h2><span id="scheduled-alarm-pill-detail" class="pill off">OFF</span></div>
             <div class="alarm-card">
               <div>
                 <strong>複数アラーム</strong>
-                <span id="scheduled-alarm-next">次のアラームは未設定です。</span>
+                <span id="scheduled-alarm-next-detail">次のアラームは未設定です。</span>
               </div>
               <label class="switch" aria-label="時刻アラーム">
-                <input id="quick_scheduled_alarm_enabled" type="checkbox" onchange="toggleScheduledAlarm(this.checked)">
+                <input id="quick_scheduled_alarm_enabled_detail" type="checkbox" onchange="toggleScheduledAlarm(this.checked)">
                 <span class="slider"></span>
               </label>
             </div>
-            <div id="alarm-preview-list" class="alarm-preview-list"></div>
-            <a class="link-button" href="#settings-panel">アラームを編集</a>
+            <button class="link-button" type="button" onclick="showTab('settings')">アラームを編集</button>
           </section>
 
           <section>
@@ -847,7 +1038,10 @@ INDEX_HTML = r"""<!doctype html>
               <button class="secondary" onclick="loadSettings()">読み込み</button>
             </div>
           </section>
+          </div>
+        </div>
 
+        <div class="tab-panel" data-panel="calibration">
           <section id="calibration-panel">
             <div class="section-head"><h2>キャリブレーション</h2></div>
             <div class="grid">
@@ -863,23 +1057,7 @@ INDEX_HTML = r"""<!doctype html>
           </section>
         </div>
 
-        <section id="status-panel">
-          <div class="section-head">
-            <h2>状態</h2>
-            <span id="status-time" class="pill off">未取得</span>
-          </div>
-          <div class="status-cards">
-            <div class="metric"><span>state</span><strong id="metric-state">-</strong></div>
-            <div class="metric"><span>event</span><strong id="metric-event">-</strong></div>
-            <div class="metric"><span>weight</span><strong id="metric-weight">-</strong></div>
-            <div class="metric"><span>process</span><strong id="metric-process">-</strong></div>
-            <div class="metric"><span>next alarm</span><strong id="metric-next-alarm">-</strong></div>
-            <div class="metric"><span>recheck</span><strong id="metric-recheck">-</strong></div>
-          </div>
-          <pre id="status" class="status">未取得</pre>
-        </section>
-
-        <section class="full" id="settings-panel">
+        <section class="tab-panel" data-panel="settings" id="settings-panel">
           <div class="section-head sticky">
             <h2>設定</h2>
             <div class="actions">
@@ -903,6 +1081,7 @@ const fields = [
   ['hx711_ready_timeout_sec','number'], ['alarm_enabled','checkbox'], ['buzzer_enabled','checkbox'],
   ['buzzer_pin','text'], ['buzzer_duration_sec','number'], ['buzzer_pulse_sec','number'],
   ['scheduled_alarm_enabled','checkbox'], ['bed_recheck_minutes','number'],
+  ['wake_mission_enabled','checkbox'], ['wake_mission_required_off_bed_sec','number'],
   ['webhook_enabled','checkbox'], ['webhook_events','text'],
   ['webhook_payload_format','select'], ['webhook_timeout_sec','number'], ['webhook_url','password']
 ];
@@ -910,7 +1089,7 @@ const fieldGroups = [
   ['基本', ['person_weight_kg', 'sample_interval_sec', 'log_path', 'status_path']],
   ['検知', ['exit_ratio', 'return_ratio', 'monitor_sec', 'confirm_sec', 'moving_average_window']],
   ['センサー', ['warmup_samples', 'median_samples', 'data_pin', 'clock_pin', 'hx711_ready_timeout_sec']],
-  ['時刻アラーム', ['scheduled_alarm_enabled', 'bed_recheck_minutes', 'scheduled_alarms']],
+  ['時刻アラーム', ['scheduled_alarm_enabled', 'bed_recheck_minutes', 'wake_mission_enabled', 'wake_mission_required_off_bed_sec', 'scheduled_alarms']],
   ['二度寝検知アラーム', ['alarm_enabled', 'buzzer_enabled', 'buzzer_pin', 'buzzer_duration_sec', 'buzzer_pulse_sec', 'webhook_url']],
   ['通知', ['webhook_enabled', 'webhook_events', 'webhook_payload_format', 'webhook_timeout_sec']]
 ];
@@ -938,6 +1117,8 @@ const fieldLabels = {
   buzzer_pulse_sec: 'パルス 秒',
   scheduled_alarm_enabled: '時刻アラーム',
   bed_recheck_minutes: '再確認 分',
+  wake_mission_enabled: '起床ミッション',
+  wake_mission_required_off_bed_sec: '離床確認 秒',
   webhook_enabled: 'Webhook',
   webhook_events: '通知イベント',
   webhook_payload_format: '形式',
@@ -946,6 +1127,52 @@ const fieldLabels = {
 };
 let current = {};
 let messageTimer = null;
+
+function applyTheme(theme) {
+  const chosen = theme === 'dark' ? 'dark' : 'light';
+  document.documentElement.dataset.theme = chosen;
+  const icon = document.getElementById('theme-icon');
+  const label = document.getElementById('theme-label');
+  const toggle = document.getElementById('theme-toggle');
+  if (icon) icon.textContent = chosen === 'dark' ? '☾' : '☀';
+  if (label) label.textContent = chosen === 'dark' ? 'Dark' : 'Light';
+  if (toggle) toggle.setAttribute('aria-pressed', chosen === 'dark' ? 'true' : 'false');
+}
+
+function initTheme() {
+  const saved = localStorage.getItem('twodosumi_theme');
+  const preferred = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  applyTheme(saved || preferred);
+}
+
+function toggleTheme() {
+  const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  localStorage.setItem('twodosumi_theme', next);
+  applyTheme(next);
+  note(next === 'dark' ? 'dark mode enabled' : 'light mode enabled');
+}
+
+function showTab(name) {
+  document.body.dataset.tab = name;
+  document.querySelectorAll('.tab-button').forEach(button => {
+    const active = button.dataset.tab === name;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
+  document.querySelectorAll('.tab-panel').forEach(panel => {
+    panel.classList.toggle('active', panel.dataset.panel === name);
+  });
+  history.replaceState(null, '', `#${name}`);
+}
+
+function initTabs() {
+  document.querySelectorAll('.tab-button').forEach(button => {
+    button.addEventListener('click', () => showTab(button.dataset.tab || 'overview'));
+  });
+  const initial = (location.hash || '#overview').replace('#', '');
+  const exists = document.querySelector(`.tab-panel[data-panel="${initial}"]`);
+  showTab(exists ? initial : 'overview');
+}
 
 function token() { return localStorage.getItem('twodosumi_token') || document.getElementById('token').value; }
 function saveToken() { localStorage.setItem('twodosumi_token', document.getElementById('token').value); note('token saved'); }
@@ -1053,10 +1280,10 @@ async function toggleAlarm(enabled) {
 }
 
 function syncScheduledAlarmUi(enabled) {
-  const input = document.getElementById('quick_scheduled_alarm_enabled');
-  const pill = document.getElementById('scheduled-alarm-pill');
-  if (input) input.checked = enabled;
-  if (pill) {
+  for (const input of document.querySelectorAll('#quick_scheduled_alarm_enabled, #quick_scheduled_alarm_enabled_detail')) {
+    input.checked = enabled;
+  }
+  for (const pill of document.querySelectorAll('#scheduled-alarm-pill, #scheduled-alarm-pill-detail')) {
     pill.textContent = enabled ? 'ON' : 'OFF';
     pill.classList.toggle('off', !enabled);
   }
@@ -1248,11 +1475,22 @@ function updateStatusView(status) {
   setText('metric-process', running ? 'running' : 'stopped');
   setText('metric-next-alarm', formatAlarm(status.next_scheduled_alarm));
   const rechecks = status.pending_rechecks || [];
-  setText('metric-recheck', rechecks.length ? `${rechecks.length} pending` : '-');
+  setText('metric-recheck', formatRechecks(rechecks));
   setText('scheduled-alarm-next', status.next_scheduled_alarm ? `次: ${formatAlarm(status.next_scheduled_alarm)}` : '次のアラームは未設定です。');
+  setText('scheduled-alarm-next-detail', status.next_scheduled_alarm ? `次: ${formatAlarm(status.next_scheduled_alarm)}` : '次のアラームは未設定です。');
   setText('hero-state', status.state);
   setText('hero-weight', weight);
   document.getElementById('status').textContent = JSON.stringify(status, null, 2);
+}
+
+function formatRechecks(rechecks) {
+  if (!rechecks.length) return '-';
+  const active = rechecks[0];
+  const elapsed = Math.floor(Number(active.off_bed_elapsed_sec || 0));
+  const required = Math.floor(Number(active.required_off_bed_sec || 0));
+  const count = Number(active.realarm_count || 0);
+  if (elapsed > 0 && required > 0) return `離床 ${elapsed}/${required}s`;
+  return count ? `再アラーム ${count}回` : `${rechecks.length} pending`;
 }
 
 async function loadStatus() {
@@ -1326,10 +1564,12 @@ function renderSensorCheck(sensor, restarted) {
   root.textContent = lines.join('\n');
 }
 
+initTheme();
+initTabs();
 setInterval(loadStatus, 3000);
 document.getElementById('token').value = token();
 if (token()) loadSettings();
-else loadStatus();
+else note('Web UI Tokenを入力してください');
 </script>
 </body>
 </html>

@@ -22,6 +22,8 @@ class PendingRecheck:
     alarm: ScheduledAlarmConfig
     alarm_date: date
     due_at: datetime
+    off_bed_since: datetime | None = None
+    realarm_count: int = 0
 
 
 class ScheduledAlarmManager:
@@ -39,6 +41,30 @@ class ScheduledAlarmManager:
         in_bed = self._is_in_bed(smoothed_weight_kg)
 
         for alarm_id, pending in list(self._pending.items()):
+            if self.config.wake_mission_enabled:
+                if self._mission_completed(pending, now=now, in_bed=in_bed):
+                    actions.append(
+                        ScheduledAlarmAction(
+                            event=DISMISSED_EVENT,
+                            message=f"Wake mission completed: {self._alarm_name(pending.alarm)}",
+                            alarm_ids=[alarm_id],
+                        )
+                    )
+                    self._complete(pending.alarm_date, alarm_id)
+                    del self._pending[alarm_id]
+                    continue
+                if in_bed and now >= pending.due_at:
+                    pending.realarm_count += 1
+                    pending.due_at = now + timedelta(minutes=self.config.bed_recheck_minutes)
+                    actions.append(
+                        ScheduledAlarmAction(
+                            event=REALARM_EVENT,
+                            message=f"Still in bed: {self._alarm_name(pending.alarm)} #{pending.realarm_count}",
+                            alarm_ids=[alarm_id],
+                        )
+                    )
+                continue
+
             if not in_bed:
                 actions.append(
                     ScheduledAlarmAction(
@@ -103,10 +129,29 @@ class ScheduledAlarmManager:
                     "time": pending.alarm.time,
                     "label": pending.alarm.label,
                     "due_at": pending.due_at.isoformat(timespec="seconds"),
+                    "off_bed_since": pending.off_bed_since.isoformat(timespec="seconds")
+                    if pending.off_bed_since
+                    else None,
+                    "off_bed_elapsed_sec": self._off_bed_elapsed_sec(pending, now),
+                    "required_off_bed_sec": self.config.wake_mission_required_off_bed_sec,
+                    "realarm_count": pending.realarm_count,
                 }
                 for pending in self._pending.values()
             ],
         }
+
+    def _mission_completed(self, pending: PendingRecheck, *, now: datetime, in_bed: bool) -> bool:
+        if in_bed:
+            pending.off_bed_since = None
+            return False
+        if pending.off_bed_since is None:
+            pending.off_bed_since = now
+        return self._off_bed_elapsed_sec(pending, now) >= self.config.wake_mission_required_off_bed_sec
+
+    def _off_bed_elapsed_sec(self, pending: PendingRecheck, now: datetime) -> float:
+        if pending.off_bed_since is None:
+            return 0.0
+        return max(0.0, (now - pending.off_bed_since).total_seconds())
 
     def _is_in_bed(self, smoothed_weight_kg: float) -> bool:
         ratio = smoothed_weight_kg / self.config.person_weight_kg
