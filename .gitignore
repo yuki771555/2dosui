@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+logs/
+*.log
+config/secrets.json
+.claude/
+.codex-remote-attachments/
+.cursor/
+tmp/
+android/.gradle/
+android/local.properties
+android/app/build/
+android/build/
+toshin-gtx-crop-worker/

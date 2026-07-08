@@ -1,0 +1,695 @@
+\documentclass[paper=a4,fontsize=10pt,ja=standard,lualatex]{jlreq}
+
+\usepackage{luatexja}
+\usepackage{luatexja-fontspec}
+\usepackage[top=18mm,bottom=18mm,left=18mm,right=18mm]{geometry}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{tabularx}
+\usepackage{tikz}
+\usepackage[american]{circuitikz}
+\usepackage{pgfplots}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage[hidelinks]{hyperref}
+\usepackage{lastpage}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,fit,calc}
+\pgfplotsset{compat=1.18}
+
+\definecolor{mainblue}{HTML}{1F5C99}
+\definecolor{accentorange}{HTML}{E67E22}
+\definecolor{softblue}{HTML}{EAF3FB}
+\definecolor{softgray}{HTML}{F4F6F8}
+\definecolor{darkgray}{HTML}{36454F}
+\definecolor{deepgreen}{HTML}{2E7D32}
+\definecolor{softgreen}{HTML}{E9F6EC}
+
+\setmainjfont{Yu Mincho}
+\setsansjfont{Yu Gothic}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+
+\hypersetup{
+  pdftitle={荷重センシングによる二度寝防止システムの開発},
+  pdfauthor={○班},
+  pdfsubject={電気電子工学導入ゼミナール自由研究}
+}
+
+\pagestyle{fancy}
+\setlength{\headheight}{14pt}
+\fancyhf{}
+\lhead{\small 荷重センシングによる二度寝防止システムの開発}
+\rhead{\small 電気電子工学導入ゼミナール自由研究}
+\cfoot{\small \thepage}
+\renewcommand{\headrulewidth}{0.3pt}
+
+\setlength{\intextsep}{9pt plus 2pt minus 3pt}
+\setlist[itemize]{leftmargin=2.0em,itemsep=0.2em,topsep=0.3em}
+\setlist[enumerate]{leftmargin=2.0em,itemsep=0.2em,topsep=0.3em}
+\renewcommand{\arraystretch}{1.18}
+
+\newcommand{\ResearchTitle}{荷重センシングによる二度寝防止システムの開発}
+\newcommand{\GroupNumber}{○班}
+\newcommand{\StudentA}{20XXXXXX　氏名A}
+\newcommand{\StudentB}{20XXXXXX　氏名B}
+\newcommand{\StudentC}{20XXXXXX　氏名C}
+\newcommand{\StudentD}{20XXXXXX　氏名D}
+\newcommand{\SubmitDate}{2026年7月23日}
+\newcommand{\AuthorNote}[1]{\hfill{\small （担当：#1）}}
+
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
+
+\begin{document}
+
+\thispagestyle{empty}
+\begin{center}
+  \vspace*{6mm}
+  {\Large 電気電子工学導入ゼミナール自由研究}\\[12mm]
+  {\LARGE\bfseries \ResearchTitle}\\[8mm]
+  {\large \GroupNumber}\\[10mm]
+\end{center}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{ll}
+\toprule
+提出日 & \SubmitDate\\
+班番号 & \GroupNumber\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\vspace{4mm}
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+学籍番号 & 氏名\\
+\midrule
+\StudentA\\
+\StudentB\\
+\StudentC\\
+\StudentD\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{8mm}
+{\large\bfseries 目次}
+\begin{center}
+\begin{tabularx}{0.96\linewidth}{C{9mm}Y C{28mm} C{12mm}}
+\toprule
+番号 & 項目 & 担当者 & ページ\\
+\midrule
+1 & 研究背景と目的 & 氏名A & \pageref{sec:background}\\
+2 & 提案システムの概要 & 氏名B & \pageref{sec:overview}\\
+3 & ハードウェア・回路・ソフトウェア構成 & 氏名B & \pageref{sec:hardware}\\
+4 & 二度寝判定アルゴリズム & 氏名C & \pageref{sec:algorithm}\\
+5 & 実装内容 & 氏名C & \pageref{sec:implementation}\\
+6 & 模擬試験・実機確認と結果 & 氏名D & \pageref{sec:results}\\
+7 & 考察 & 氏名D & \pageref{sec:discussion}\\
+8 & まとめと今後の課題 & 全員 & \pageref{sec:conclusion}\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\vfill
+\noindent
+本稿では、Raspberry Pi とロードセルを用いてベッド上の荷重変化を読み取り、起床後に再びベッドへ戻る行動を検出する二度寝防止システム「2dosumi」の開発について報告する。本研究では、二度寝を「離床後の再在床」という観測可能な状態遷移として定義し、荷重値のしきい値、監視時間、再在床の継続時間を組み合わせて判定する方式を採用した。模擬センサによる状態遷移の確認に加え、実機ではテスターによる電圧測定にもとづく不具合の切り分け、既知重量を用いたゼロ点・スケール校正、荷重変化の読み取りまでを確認した。
+
+\vspace{2mm}
+\noindent
+{\small\color{darkgray} ※提出前に、班番号・学籍番号・氏名・担当者名を実情報に置き換えること。}
+
+\clearpage
+
+\section{研究背景と目的}
+\label{sec:background}
+\AuthorNote{氏名A}
+
+朝の起床直後は、目覚ましを止めたあとに再び寝床へ戻る「二度寝」が起こりやすい。スマートフォンのアラームは音や振動によって覚醒を促すが、ユーザが一度アラームを止めてしまうと、その後に本当に起き続けているかを確認できない。そこで本研究では、寝床に戻ったという行動そのものを検出し、二度寝の直前または直後に再通知できるシステムを目標とした。
+
+本研究の着眼点は、映像やマイクではなく荷重センサを用いることである。ベッドの脚やマットレス下にロードセルを設置すれば、利用者の在床・離床を、比較的プライバシーを保ったまま観測できる。画像認識に比べて得られる情報は少ないが、起床支援という目的に対しては「ベッド上にいるか」「離床後に戻ったか」という低次元の情報で十分である。既存の起床支援方法と本研究の位置づけを表\ref{tab:related}に整理する。
+
+\begin{table}[h]
+\centering
+\caption{既存の起床支援方法と本研究の位置づけ}
+\label{tab:related}
+\begin{tabularx}{0.95\linewidth}{lYYY}
+\toprule
+方式 & 長所 & 弱点 & 本研究との関係\\
+\midrule
+スマートフォンアラーム & 導入が容易 & 停止後の行動を見ない & 基本通知として併用可能\\
+カメラ監視 & 行動を細かく把握可能 & プライバシー負担が大きい & 本研究では採用しない\\
+ウェアラブル & 身体状態を測定可能 & 装着忘れがある & 非装着型を目指す\\
+荷重センシング & 在床変化を直接検出 & 設置・校正が必要 & 本研究の中心\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+研究目的は次の三点である。第一に、ロードセルから得られる荷重値をもとに在床状態を推定すること。第二に、離床後に一定時間以内で再び在床した場合を「二度寝リスク」として判定すること。第三に、判定結果を Web 画面や通知機構へつなげ、実用的な起床支援システムとして扱える形にすることである。
+
+\section{提案システムの概要}
+\label{sec:overview}
+\AuthorNote{氏名B}
+
+提案システムは、ベッド下の荷重センサ、Raspberry Pi 上の判定プログラム、利用者が状態を確認する Web インタフェースおよび Android ネイティブアプリから構成される。センサは寝床の荷重を周期的に読み取り、プログラムはその値をしきい値と時間条件で解釈する。二度寝が疑われる状態になると、Android アプリがスマートフォン側でアラーム音と通知を出し、必要に応じて Webhook や Raspberry Pi 側ブザーも補助通知として利用できる。システムの全体構成を図\ref{fig:system}に示す。
+
+\begin{figure}[h]
+\centering
+\resizebox{0.94\linewidth}{!}{%
+\begin{tikzpicture}[
+  font=\small,
+  block/.style={draw=mainblue!70,line width=0.8pt,rounded corners=2pt,fill=softblue,minimum width=32mm,minimum height=11mm,align=center},
+  smallblock/.style={draw=darkgray!45,line width=0.6pt,rounded corners=2pt,fill=softgray,minimum width=30mm,minimum height=10mm,align=center},
+  arrow/.style={-{Latex[length=2.4mm]},thick,darkgray},
+  lbl/.style={font=\scriptsize,darkgray,fill=white,inner sep=1.5pt}
+]
+\node[block] (bed) {ベッド\\ロードセル};
+\node[smallblock,right=15mm of bed] (hx) {HX711\\増幅・A/D変換};
+\node[block,right=15mm of hx] (pi) {Raspberry Pi\\判定・API};
+\node[smallblock,above right=7mm and 17mm of pi] (web) {Web UI\\状態確認・設定};
+\node[smallblock,right=17mm of pi] (android) {Androidアプリ\\操作・鳴動};
+\node[smallblock,below right=7mm and 17mm of pi] (log) {CSVログ\\事後検証};
+\node[block,right=10mm of android] (notify) {スマホアラーム\\通知};
+\draw[arrow] (bed) -- node[lbl,above]{微小電圧} (hx);
+\draw[arrow] (hx) -- node[lbl,above]{デジタル値} (pi);
+\draw[arrow] (pi) -- (web);
+\draw[arrow] (pi) -- node[lbl,above]{HTTP API} (android);
+\draw[arrow] (pi) -- (log);
+\draw[arrow] (android) -- (notify);
+\end{tikzpicture}
+}
+\caption{提案システムの全体構成}
+\label{fig:system}
+\end{figure}
+
+本システムが扱う状態は、主に「在床」「離床後監視」「再在床」「二度寝検出」であり、監視時間内に戻らなければ「起床成功」となる。重要なのは、単にベッドにいるかどうかではなく、起床予定時刻付近で一度離床した後に戻るという時間的な流れを扱う点である。このため、瞬間的なしきい値判定だけではなく、離床から再在床までの経過時間も判定に用いる。
+
+Android ネイティブアプリは、Raspberry Pi 側の HTTP API に接続する日常利用の窓口として位置づけた。Web ブラウザでも状態確認は可能だが、利用者が自分から開く必要があるため、二度寝しかけている利用者へ情報を届ける手段としては受動的である。ネイティブアプリであれば Foreground Service と通知を用いて画面消灯中も状態を監視し、スマートフォン本体からアラーム音を鳴らせる。
+
+起床直後には、枕元の端末から現在状態、重量値、次回アラーム、再確認状態を少ない操作で確認できる。さらに、音量、通知の有無、アラーム設定、二度寝確定までの秒数、再確認間隔、ゼロ点校正、既知重量によるスケール校正、センサ確認などを同じ画面から変更できる。このようにアプリは将来の拡張ではなく、通知を受け取り設定を調整するというシステムの利用体験そのものを担う要素である。
+
+実装済みのプログラムでは、設定ファイルからセンサ種別、しきい値、通知方法、Web サーバ設定などを読み込める。これにより、実機ロードセルがない環境でも模擬センサを用いて判定ロジックを検証できる。また、設定値を変更することで、ベッドや利用者の体重差に応じた調整を行える設計とした。
+
+\section{ハードウェア・回路・ソフトウェア構成}
+\label{sec:hardware}
+\AuthorNote{氏名B}
+
+ハードウェア面では、Raspberry Pi、HX711、ロードセル、スマートフォンアプリによる通知を中心に構成する。ロードセルは微小なひずみを電気信号へ変換するセンサであり、HX711 はロードセル用の高分解能 A/D 変換器として広く使われている。Raspberry Pi は HX711 から得られる値を読み取り、Python プログラムで状態判定を行う。主要な構成要素を表\ref{tab:components}にまとめる。
+
+\begin{table}[h]
+\centering
+\caption{主要構成要素}
+\label{tab:components}
+\begin{tabularx}{0.95\linewidth}{lYY}
+\toprule
+分類 & 要素 & 役割\\
+\midrule
+センサ & ロードセル & ベッド上の荷重変化を測定する\\
+変換回路 & HX711 & ロードセル信号を Raspberry Pi で扱える値に変換する\\
+処理部 & Raspberry Pi & 状態判定、通知、Web UI 提供を行う\\
+通知部 & Android アプリ、通知、スマホ音 & 二度寝検出時に利用者へ知らせる\\
+表示部 & Web ブラウザ & 現在状態、履歴、設定値を確認する\\
+モバイル部 & Android ネイティブアプリ & 状態確認、設定、校正、アラーム鳴動を行う\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+回路面で当初想定した標準構成は、4個のロードセルを組み合わせたホイートストンブリッジである（図\ref{fig:bridge}）。ロードセル内部のひずみゲージは、荷重を受けると抵抗値がわずかに変化する。しかし、その変化は非常に小さく、Raspberry Pi の GPIO へ直接入力しても読み取れない。そこで、4個のロードセルをブリッジの4辺として構成し、左右の中点間に現れる差動電圧を HX711 で増幅・A/D 変換する。ブリッジ構成には、抵抗変化を差動電圧として取り出すことで感度を高められるうえ、温度変化のように4個の抵抗へ同じ向きに現れる変動を打ち消せるという利点がある。
+
+\begin{figure}[h]
+\centering
+\resizebox{0.82\linewidth}{!}{%
+\begin{circuitikz}[
+  american resistors,
+  circuitikz/bipoles/length=12mm,
+  every node/.style={font=\small},
+  wire/.style={thick},
+  sig/.style={{Latex[length=2.0mm]}-{Latex[length=2.0mm]},dashed,thick,mainblue},
+  data/.style={-{Latex[length=2.0mm]},thick},
+  port/.style={font=\scriptsize,inner sep=1pt}
+]
+\coordinate (ep) at (0,2.6);
+\coordinate (em) at (0,-2.6);
+\coordinate (ap) at (-3.1,0);
+\coordinate (am) at (3.1,0);
+\draw[wire] (ep) to[R,l_={LC1}] (ap)
+            to[R,l_={LC3}] (em)
+            to[R,l_={LC4}] (am)
+            to[R,l_={LC2}] (ep);
+\fill (ep) circle (1.4pt);
+\fill (em) circle (1.4pt);
+\fill (ap) circle (1.4pt);
+\fill (am) circle (1.4pt);
+\node[above left=1mm and -2mm of ep] {E+（励起+）};
+\node[left=3mm of em] {E-（励起-）};
+\node[left=2mm of ap] {A+};
+\node[below=2mm of am] {A-};
+\draw[sig] ($(ap)+(0.45,0)$) -- node[above,fill=white,inner sep=1.5pt]{差動電圧} ($(am)+(-0.45,0)$);
+\node[draw,rounded corners,fill=softblue,minimum width=30mm,minimum height=30mm,align=center] (hx) at (6.7,0) {HX711\\増幅（PGA）\\A/D変換};
+% 励起（E+ / E-）：HX711基板からブリッジへ電源を供給
+\draw[wire] (ep) -- node[above,font=\scriptsize]{励起電圧の供給} (5.0,2.6) -- (5.0,1.15) -- (hx.west |- 0,1.15);
+\draw[wire] (em) -- (0,-3.3) -- (4.6,-3.3) -- (4.6,-0.45) -- (hx.west |- 0,-0.45);
+% 差動入力（A+ / A-）：ブリッジ中点の電圧をHX711へ入力
+\draw[wire] (am) -- (4.6,0) -- (4.6,0.45) -- (hx.west |- 0,0.45);
+\draw[wire] (ap) -- (-3.1,-3.9) -- (5.0,-3.9) -- (5.0,-1.15) -- (hx.west |- 0,-1.15);
+\node[port,anchor=west] at ($(hx.west)+(0.06,1.15)$) {E+};
+\node[port,anchor=west] at ($(hx.west)+(0.06,0.45)$) {A-};
+\node[port,anchor=west] at ($(hx.west)+(0.06,-0.45)$) {E-};
+\node[port,anchor=west] at ($(hx.west)+(0.06,-1.15)$) {A+};
+\node[draw,rounded corners,fill=softgray,minimum width=30mm,minimum height=17mm,align=center,right=13mm of hx] (pi) {Raspberry Pi\\GPIO};
+\draw[data] (hx.east |- 0,0.4) -- node[above]{DOUT} (pi.west |- 0,0.4);
+\draw[data] (pi.west |- 0,-0.4) -- node[below]{SCK} (hx.east |- 0,-0.4);
+\end{circuitikz}%
+}
+\caption{4個のロードセル（LC1〜LC4）で構成したホイートストンブリッジと HX711・Raspberry Pi の接続}
+\label{fig:bridge}
+\end{figure}
+
+実機検証では当初4個構成で組み、初期の読み取り不良は HX711 読み取り処理の実装ミスを修正することで解消し、4個構成でもサンプル取得できることを確認した。その後、別日にロードセル1個のセンサ線を断線してしまったため、最終的な実機検証では故障したロードセルを外し、2個の半橋ロードセルで1つのブリッジを構成する方式へ変更した。これは初期の読み取り不良とは別の事象であり、測定方式を単に簡略化したのではなく、実験を継続するための故障対応である。本研究の目的は体重を高精度に量ることではなく、在床、離床、再在床の大きな荷重変化を判定することであるため、2個構成でも判定ロジックの検証には十分であると判断した。実機検証で用いた2個ロードセル版の接続を図\ref{fig:two-cell-bridge}と表\ref{tab:two-cell-wiring}に示す。
+
+\begin{figure}[h]
+\centering
+\resizebox{0.86\linewidth}{!}{%
+\begin{circuitikz}[
+  american resistors,
+  circuitikz/bipoles/length=12mm,
+  every node/.style={font=\small},
+  wire/.style={thick},
+  sig/.style={{Latex[length=2.0mm]}-{Latex[length=2.0mm]},dashed,thick,mainblue},
+  data/.style={-{Latex[length=2.0mm]},thick},
+  port/.style={font=\scriptsize,inner sep=1pt}
+]
+\coordinate (lTop) at (-2.4,2.4);
+\coordinate (lMid) at (-2.4,0);
+\coordinate (lBot) at (-2.4,-2.4);
+\coordinate (rTop) at (2.4,2.4);
+\coordinate (rMid) at (2.4,0);
+\coordinate (rBot) at (2.4,-2.4);
+\draw[wire] (lTop) to[R,l={LC1上側}] (lMid)
+            to[R,l={LC1下側}] (lBot);
+\draw[wire] (rTop) to[R,l_={LC2上側}] (rMid)
+            to[R,l_={LC2下側}] (rBot);
+\draw[wire] (lTop) -- node[above,font=\scriptsize]{E+ 共通} (rTop);
+\draw[wire] (lBot) -- node[below,font=\scriptsize]{E- 共通} (rBot);
+\fill (lTop) circle (1.4pt);
+\fill (lMid) circle (1.4pt);
+\fill (lBot) circle (1.4pt);
+\fill (rTop) circle (1.4pt);
+\fill (rMid) circle (1.4pt);
+\fill (rBot) circle (1.4pt);
+\node[left=2mm of lMid] {A+};
+\node[right=2mm of rMid] {A-};
+\draw[sig] ($(lMid)+(0.35,0)$) -- node[above,fill=white,inner sep=1.5pt]{差動電圧} ($(rMid)+(-0.35,0)$);
+\node[draw,rounded corners,fill=softblue,minimum width=30mm,minimum height=30mm,align=center] (hx) at (6.5,0) {HX711\\Aチャネル\\増幅・A/D};
+\draw[wire] (rTop) -- (4.7,2.4) -- (4.7,1.15) -- (hx.west |- 0,1.15);
+\draw[wire] (rBot) -- (4.3,-2.4) -- (4.3,-0.45) -- (hx.west |- 0,-0.45);
+\draw[wire] (rMid) -- (4.3,0) -- (4.3,0.45) -- (hx.west |- 0,0.45);
+\draw[wire] (lMid) -- (-1.0,0) -- (-1.0,-3.1) -- (4.7,-3.1) -- (4.7,-1.15) -- (hx.west |- 0,-1.15);
+\node[port,anchor=west] at ($(hx.west)+(0.06,1.15)$) {E+};
+\node[port,anchor=west] at ($(hx.west)+(0.06,0.45)$) {A-};
+\node[port,anchor=west] at ($(hx.west)+(0.06,-0.45)$) {E-};
+\node[port,anchor=west] at ($(hx.west)+(0.06,-1.15)$) {A+};
+\node[draw,rounded corners,fill=softgray,minimum width=30mm,minimum height=17mm,align=center,right=13mm of hx] (pi) {Raspberry Pi\\GPIO};
+\draw[data] (hx.east |- 0,0.4) -- node[above]{DOUT} (pi.west |- 0,0.4);
+\draw[data] (pi.west |- 0,-0.4) -- node[below]{SCK} (hx.east |- 0,-0.4);
+\end{circuitikz}%
+}
+\caption{実機検証で用いた2個の半橋ロードセルによるブリッジ構成}
+\label{fig:two-cell-bridge}
+\end{figure}
+
+\begin{table}[h]
+\centering
+\caption{2個ロードセル構成での端子接続}
+\label{tab:two-cell-wiring}
+\begin{tabularx}{0.95\linewidth}{lY}
+\toprule
+端子 & 接続先\\
+\midrule
+E+ & 2個のロードセルの上側外端を共通接続\\
+E- & 2個のロードセルの下側外端を共通接続\\
+A+ & 1個目ロードセルの中点\\
+A- & 2個目ロードセルの中点\\
+VCC & Raspberry Pi の 3.3 V\\
+GND & Raspberry Pi の GND\\
+DT / DOUT & Raspberry Pi の GPIO6（D6）\\
+SCK / CLK & Raspberry Pi の GPIO5（D5）\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+2個のロードセルは向きや荷重のかかり方により、A+ と A- の符号が期待と逆になる場合がある。その場合でも故障とは限らず、既知重量を用いた校正でスケール係数の符号が決まり、ソフトウェア上では kg 相当値として扱える。本研究の実機でも、既知重量による校正後に荷重を kg 相当値として読み取れることを確認した（第\ref{sec:results}節）。
+
+HX711 基板では、ロードセル側の端子は一般に E+、E-、A+、A- と表記される。E+ と E- は HX711 基板側からブリッジへ電圧を供給する励起端子であり、A+ と A- はブリッジの左右の中点から差動電圧を受け取る入力端子である。荷重がないときは左右の分圧がほぼ等しく、A+ と A- の電位差はほぼ 0 V になる。荷重がかかると一部のゲージが伸び、別のゲージが縮むため、片側の抵抗はわずかに増え、反対側はわずかに減る。励起電圧を $V_E$、無荷重時の各辺の抵抗を $R$、荷重による変化分を $\Delta R$ とし、対角の2辺が $+\Delta R$、残りの2辺が $-\Delta R$ と逆向きに変化する理想的な場合を考えると、左右の分圧の差として現れる出力電圧は
+\[
+  V_{\mathrm{A+}} - V_{\mathrm{A-}} = \frac{\Delta R}{R}\, V_E
+\]
+となり、抵抗の変化率に比例した電圧が得られる。実際の $\Delta R / R$ はごく小さく、この差動電圧は数 mV 程度と微小であるため、HX711 は内部のプログラマブルゲインアンプ（チャネル A では 128 倍）で増幅したうえで、24 ビットの A/D 変換器によりデジタル値へ変換し、DOUT・SCK の2線シリアルで Raspberry Pi へ送る（表\ref{tab:hx711}）。
+
+\begin{table}[h]
+\centering
+\caption{HX711 と Raspberry Pi の接続例}
+\label{tab:hx711}
+\begin{tabularx}{0.95\linewidth}{lYY}
+\toprule
+端子 & 接続先 & 役割\\
+\midrule
+E+ / E- & ロードセルブリッジの電源端 & ブリッジ回路へ励起電圧を与える\\
+A+ / A- & ブリッジの左右中点 & 荷重で変化する差動電圧を入力する\\
+VCC / GND & Raspberry Pi の 3.3 V / GND & HX711 基板へ電源を供給する\\
+DT / DOUT & Raspberry Pi の GPIO6（D6） & 変換完了とデータ出力を受け取る\\
+SCK / CLK & Raspberry Pi の GPIO5（D5） & クロックを送り、データ読み出しとゲイン設定を行う\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Raspberry Pi で使う場合は、GPIO が 3.3 V 入力である点に注意する。HX711 モジュールには 5 V 動作品も多く、DT 端子の High レベルが 5 V のままでは GPIO を傷めるおそれがあるため、本研究では HX711 を 3.3 V で駆動した。また、センサ配線は微小電圧を扱うため、長い配線や電源ノイズ、断線の影響を受けやすい。実機では、ロードセルの固定と荷重分散に注意し、ゼロ点補正と既知重量による校正で読み取り値を kg 相当へ変換する。
+
+ソフトウェアは Raspberry Pi 側の Python プログラムと、スマートフォン側の Android ネイティブアプリに分けて構成した。Raspberry Pi 側では、センサ入力、判定器、通知、Web サーバを分離し、それぞれの責務を小さくした。これにより、実機センサから模擬センサへ切り替えても、判定器や表示側のコードを大きく変えずに試験できる。
+
+Android アプリは Kotlin と Jetpack Compose により実装し、Retrofit/OkHttp を用いて、Raspberry Pi が公開する状態 API、設定 API、校正 API を呼び出す。センサ値を直接読まずに API 経由とすることで、ロードセルや HX711 に近い低レベル処理は Raspberry Pi に集約し、スマートフォン側は操作性と表示に集中できる。
+
+\subsection{筐体（3Dプリントケース）の設計}
+
+当初設計では、ロードセル4個、HX711、Raspberry Pi を一体化した体重計型の筐体を OpenSCAD で設計し、3Dプリンタ（Bambu A1 mini、造形範囲 $180\times180$ mm）で製作する構成を想定した。筐体はベッドの脚1本の下に敷き、その脚にかかる荷重の変化から在床・離床を読み取る。構成は、ロードセル・HX711・Raspberry Pi を収める下皿（168 mm 角）、その上に浮かべる上蓋（175.8 mm 角）、脚を受けるリング、および残り3本の脚の高さを揃えるスペーサー3個であり、全高は 34 mm である。設計の要点は荷重経路にある。脚の荷重は上蓋から裏面の4個のボスを介してロードセル中央の受圧ボタンのみに伝わり、下皿の支持台（ペデスタル）を経て床へ抜ける。上蓋は電子部品のどこにも接触せず（Raspberry Pi 最上部との隙間 2.6 mm）、外周のスカートは横ズレとほこりの侵入を防ぐだけで荷重を負担しない。これは市販の体重計と同じ構造であり、4個構成では各ロードセルに荷重が分配される。設計した筐体の組立状態と断面を図\ref{fig:case}に示す。
+
+\begin{figure}[h]
+\centering
+\begin{minipage}[t]{0.48\linewidth}
+  \centering
+  \includegraphics[width=\linewidth]{hardware/case/img/assembly_iso.png}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.48\linewidth}
+  \centering
+  \includegraphics[width=\linewidth]{hardware/case/img/section_front.png}
+\end{minipage}
+\caption{設計した筐体の組立ビュー（左）とロードセル中心線での断面（右）。断面では上蓋がロードセルの受圧ボタン4点のみに接触し、中央の Raspberry Pi（緑・灰）と隙間を保っていることが分かる}
+\label{fig:case}
+\end{figure}
+
+当初設計の耐久性は、荷重をほぼすべて「圧縮」で受ける構造とすることで確保した。3Dプリント品は曲げや積層はく離に弱い一方、押し潰す方向には強いためである。ロードセルの定格は4個構成で $50\,\mathrm{kg}\times4=200\,\mathrm{kg}$ であり、就寝時にこの脚へかかる荷重（数十 kg）に対して十分な余裕がある。曲げを受ける唯一の部品は上蓋であり、板厚 7 mm に加えて裏面に深さ 5 mm のリブを配置し、Raspberry Pi の直上のみリブを省いてクリアランスを確保した。また、樹脂は常時荷重でわずかに変形が進む（クリープ）ため、長期間の使用ではゼロ点が徐々にずれ得るが、これは Web UI からのゼロ点校正で補正できる。製作時の主な印刷条件を表\ref{tab:print}に示す。曲げ剛性が必要な上蓋のみ壁数と充填密度を高め、圧縮しか受けない部品は標準設定として印刷時間を抑えた。
+
+\begin{table}[h]
+\centering
+\caption{3Dプリントの主な条件（材料は PETG、積層ピッチ 0.2 mm、サポート材なし）}
+\label{tab:print}
+\begin{tabularx}{0.95\linewidth}{lllY}
+\toprule
+部品 & 壁面層数 & 充填密度 & 補足\\
+\midrule
+上蓋 & 4 & 25\% & トップ面・底面各5層。唯一曲げを受けるため強化する\\
+下皿 & 3 & 15\% & 床に全面接地するため曲げがかからない\\
+スペーサー（3個） & 2 & 10〜15\% & 圧縮のみ。本体と同高にしてベッドを水平に保つ\\
+脚受けリング & 2 & 15\% & 脚の横ズレ防止用\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+当初設計の組立では、ロードセルは下皿四隅のポケットにはめ込むだけで位置が決まり、上蓋のボスが上から押さえる。HX711 は中央のベイに収め、床の貫通スロットに通した結束バンドで固定する。Raspberry Pi は下皿のスタンドオフ4本（Pi 4 の取付穴ピッチ $58\times49$ mm に対応、下穴 $\phi2.2$ mm）に M2.5$\times$6 mm の小ネジをセルフタップでねじ込んで固定し、USB-C 電源ケーブルは側壁のスリットから外へ引き出す。設置面が沈むと支持台が傾き測定が不安定になるため、カーペット上への直置きは避け、フローリングか板の上に設置する。
+
+\section{二度寝判定アルゴリズム}
+\label{sec:algorithm}
+\AuthorNote{氏名C}
+
+判定アルゴリズムは状態遷移として設計した。センサ値には揺らぎがあるため、単一のしきい値で在床・離床を切り替えると、境界付近で判定が細かく振動してしまう。そこで本システムでは、荷重値を設定した利用者体重に対する比率へ換算したうえで、離床の判定（体重比 0.3 未満）と再在床の判定（体重比 0.4 超）に異なるしきい値を用いるヒステリシスを持たせた。さらに、離床後の監視時間と、再在床の継続を確かめる確認時間を組み合わせることで、瞬間的な変動だけで二度寝と決めない設計とした。状態遷移の全体を図\ref{fig:fsm}に、判定に用いる主なパラメータを表\ref{tab:params}に示す。
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  font=\small,
+  state/.style={draw=mainblue!70,line width=0.8pt,rounded corners=3pt,fill=softblue,minimum width=31mm,minimum height=11mm,align=center},
+  goal/.style={draw=deepgreen!70,line width=0.8pt,rounded corners=3pt,fill=softgreen,minimum width=31mm,minimum height=11mm,align=center},
+  alert/.style={draw=accentorange!80,line width=0.8pt,rounded corners=3pt,fill=accentorange!18,minimum width=31mm,minimum height=11mm,align=center},
+  lab/.style={font=\scriptsize,align=center,darkgray},
+  arrow/.style={-{Latex[length=2.2mm]},thick,darkgray}
+]
+\node[state] (sleep) {SLEEPING\\在床};
+\node[state,right=27mm of sleep] (awake) {AWAKE\_WINDOW\\離床後監視};
+\node[goal,right=27mm of awake] (done) {DONE\\起床成功};
+\node[state,below=16mm of awake] (returned) {RETURNED\\再在床};
+\node[alert,below=16mm of sleep] (second) {SECOND\_SLEEP\\二度寝検出};
+\node[lab,left=8mm of sleep] (start) {開始};
+\draw[arrow] (start) -- (sleep);
+\draw[arrow] (sleep) -- node[lab,above]{離床\\（体重比 $<0.3$）} (awake);
+\draw[arrow] (awake) -- node[lab,above]{監視時間\\（30分）経過} (done);
+\draw[arrow] ([xshift=-5mm]awake.south) -- node[lab,left]{再在床\\（体重比 $>0.4$）} ([xshift=-5mm]returned.north);
+\draw[arrow] ([xshift=5mm]returned.north) -- node[lab,right]{荷重再低下} ([xshift=5mm]awake.south);
+\draw[arrow] (returned) -- node[lab,above]{確認時間\\（3分）継続} (second);
+\end{tikzpicture}
+\caption{二度寝判定の状態遷移（緑：正常終了、橙：二度寝検出。しきい値と時間は表\ref{tab:params}の既定値）}
+\label{fig:fsm}
+\end{figure}
+
+\begin{table}[h]
+\centering
+\caption{判定に用いる主なパラメータ（既定値。設定ファイルで変更できる）}
+\label{tab:params}
+\begin{tabularx}{0.95\linewidth}{llY}
+\toprule
+パラメータ & 既定値 & 意味\\
+\midrule
+離床判定比 & 0.3 & 体重比がこの値を下回ると離床とみなす\\
+再在床判定比 & 0.4 & 離床後、体重比がこの値を超えると再在床とみなす\\
+監視時間 & 30分 & 離床後に再在床を見張る時間\\
+確認時間 & 3分 & 再在床がこの時間続くと二度寝と確定する\\
+中央値フィルタ & 9点 & 複数サンプルの中央値で1回分の読み値を決める\\
+移動平均 & 5点 & 判定前に読み値の列を平滑化する\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+この方式の利点は、判定理由を説明しやすいことである。機械学習モデルを用いる場合、多様なデータを集めれば複雑な行動を分類できる一方、少数データでは過学習や説明困難性が問題になる。本研究段階では、まず比率のしきい値と時間条件による確実な基礎機能を作り、将来的にデータが蓄積した段階で学習型の判定へ拡張する方針とした。
+
+処理の流れをまとめると、次のようになる。
+
+\begin{enumerate}
+  \item センサ値を一定周期で取得し、中央値フィルタと移動平均で平滑化する。
+  \item 平滑化した値の体重比が離床判定比を下回ったら、離床時刻を記録して監視を始める。
+  \item 監視時間内に体重比が再在床判定比を超えたら、再在床状態へ移る。監視時間を過ぎれば、起床成功として監視を終える。
+  \item 再在床が確認時間続けば、二度寝検出として通知する。途中で荷重が再び下がった場合は監視状態へ戻る。
+\end{enumerate}
+
+\section{実装内容}
+\label{sec:implementation}
+\AuthorNote{氏名C}
+
+実装では、コマンドライン実行、Web サーバ、設定ファイル、ログ出力、Android アプリ、テストを用意した。コマンドラインからは通常実行と模擬実行を切り替えられる。Web サーバは現在の状態やイベント履歴を返す API を持ち、簡易画面から状態確認と設定変更ができる。ログは時刻、荷重値、状態、イベントを残すため、後から判定が妥当だったかを確認できる。Raspberry Pi 側のモジュール分割と依存関係を図\ref{fig:software}に、実装した主な機能を表\ref{tab:features}に示す。
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  font=\small,
+  module/.style={draw=mainblue!70,line width=0.7pt,rounded corners=2pt,fill=softblue,minimum width=31mm,minimum height=9mm,align=center},
+  ext/.style={draw=accentorange!80,line width=0.7pt,rounded corners=2pt,fill=accentorange!12,minimum width=31mm,minimum height=9mm,align=center},
+  data/.style={draw=darkgray!45,line width=0.6pt,rounded corners=2pt,fill=softgray,minimum width=26mm,minimum height=8mm,align=center},
+  arrow/.style={-{Latex[length=2.2mm]},thick,darkgray},
+  lbl/.style={font=\scriptsize,darkgray}
+]
+\node[module] (sensor) {sensors.py\\荷重取得};
+\node[module,above=7mm of sensor] (config) {config.py\\設定読込};
+\node[module,right=16mm of sensor] (detector) {detector.py\\状態判定};
+\node[module,right=16mm of detector] (notify) {alarm.py\\通知イベント};
+\node[data,above=7mm of detector] (log) {CSVログ};
+\node[module,below=8mm of detector] (web) {web.py\\Web API};
+\node[ext,below=8mm of notify] (android) {Androidアプリ\\スマホ鳴動};
+\draw[arrow] (config) -- (sensor);
+\draw[arrow] (config) -- (detector);
+\draw[arrow] (sensor) -- (detector);
+\draw[arrow] (detector) -- (notify);
+\draw[arrow] (detector) -- (web);
+\draw[arrow] (detector) -- (log);
+\draw[arrow] (web) -- node[lbl,below]{HTTP} (android);
+\end{tikzpicture}
+\caption{ソフトウェアのモジュール分割（青：Raspberry Pi 側の Python モジュール、橙：スマートフォン側、灰：データ）}
+\label{fig:software}
+\end{figure}
+
+\begin{table}[h]
+\centering
+\caption{実装した主な機能}
+\label{tab:features}
+\begin{tabularx}{0.95\linewidth}{lY}
+\toprule
+機能 & 内容\\
+\midrule
+設定読込 & JSON 設定から判定比、監視・確認時間、通知方法を指定する\\
+センサ抽象化 & 実機 HX711 と模擬センサを切り替えられる\\
+平滑化 & 中央値フィルタと移動平均で読み値のノイズを抑える\\
+状態判定 & 離床、再在床、二度寝検出を状態遷移で処理する\\
+通知 & Android アプリのスマホ音、通知、Webhook、補助ブザーに対応する\\
+定時アラーム & 指定時刻に鳴動し、離床の継続を確認する起床ミッションを持つ\\
+Web UI & ブラウザから状態、ログ、設定を確認できる\\
+Android アプリ & Kotlin/Jetpack Compose で状態確認、スマホアラーム、音量調整、校正操作を行う\\
+単体テスト & 設定、センサ、判定、Web API の基本動作を確認する\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+模擬センサを用意した理由は、実機環境がなくても判定器の振る舞いを再現できるようにするためである。開発初期に実機だけへ依存すると、配線ミスやセンサ固定方法の問題と、ソフトウェアのバグが混ざってしまう。模擬入力で「期待する状態遷移が起こる」ことを先に確認しておくことで、実機試験時の切り分けが容易になる。
+
+また、Web UI と Android アプリを持たせたことで、実験中にターミナルを見続けなくても現在状態を確認できる。Web UI は PC からの確認や発表デモに向き、Android アプリは起床直後に手元で操作する場面に向く。特に、スマートフォン側でアラーム一覧、センサ校正、音量、通知、二度寝確定秒数、再確認間隔を変更できるため、利用者が日常的に設定を変える運用を想定できる。アプリは Foreground Service で Raspberry Pi の状態 API を監視し、時刻アラーム、再アラーム、再入床、二度寝検出のイベントを受けてスマートフォン本体から音を鳴らす。これにより、Raspberry Pi にブザーを接続しなくても、枕元のスマートフォンを通知装置として利用できる。
+
+\section{模擬試験・実機確認と結果}
+\label{sec:results}
+\AuthorNote{氏名D}
+
+本節では、ソフトウェア上の判定ロジック、実機回路の電気的状態、校正後の荷重読み取りの三段階で確認した結果を述べる。模擬試験では、実機の配線状態に依存せず、状態遷移そのものが設計どおりに動くかを検証した。実機確認では、HX711 まわりの電源・励起・差動入力を測定し、読み取り不良の原因を配線とソフトウェアに分けて切り分けた。最後に、2個ロードセル構成で校正を行い、在床・離床判定に必要な荷重差を読み取れるか確認した。結果の要約を表\ref{tab:result-summary}に示す。
+
+\begin{table}[h]
+\centering
+\caption{確認結果の要約}
+\label{tab:result-summary}
+\begin{tabularx}{0.95\linewidth}{lYY}
+\toprule
+確認項目 & 方法 & 結果\\
+\midrule
+状態遷移 & 体重 60 kg 相当の模擬入力18サンプルを与える & left\_bed、returned、second\_sleep\_detected が順に1回ずつ発生\\
+実機切り分け & VCC、励起電圧、A+--A-、導通、DOUT の挙動を測定 & 電源・ブリッジ応答は確認でき、初期不具合は HX711 読み取り処理の実装ミスと判断\\
+4個構成の確認 & 読み取り処理修正後にサンプル取得を実施 & 4個ロードセル構成でも変換完了とサンプル取得を確認\\
+最終構成の校正 & 後日の断線対応として2個構成へ組み替え、ゼロ点・スケール校正を実施 & 既知荷重を1\%未満の誤差で読み取り、空床と在床相当の値が明確に分離\\
+ソフトウェア試験 & 設定、センサ、判定、Web API の単体テストを実行 & 24件のテストが通過\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{模擬センサによる状態遷移の確認}
+
+模擬試験では、体重 60 kg の利用者を想定し、在床状態から一度離床し、その後ベッドへ戻る入力列を与えた。確認した実行では、18 サンプルの範囲で「在床」「離床後監視」「再在床」「二度寝検出」の順に状態が遷移した。これにより、少なくとも設計した状態遷移がソフトウェア上で動作することを確認できた。与えた模擬入力を図\ref{fig:sim}に、確認したイベントを表\ref{tab:events}に示す。図中の2本の破線は、離床判定（体重比 0.3、荷重値 18 相当）と再在床判定（体重比 0.4、荷重値 24 相当）のしきい値であり、両者をずらしたヒステリシスによって境界付近の揺らぎで判定が振動しないようにしている。
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.92\linewidth,
+  height=56mm,
+  xlabel={サンプル番号},
+  ylabel={荷重値（kg 相当・模擬）},
+  xmin=1,xmax=18,
+  ymin=0,ymax=78,
+  xtick={1,3,5,7,9,11,13,15,17},
+  ytick={0,20,40,60},
+  axis line style={darkgray!70},
+  every tick/.append style={darkgray!70},
+  tick label style={font=\small},
+  label style={font=\small},
+  grid=both,
+  grid style={line width=.1pt, draw=gray!25},
+  major grid style={line width=.2pt,draw=gray!40},
+  legend pos=south east,
+  legend cell align=left,
+  legend style={font=\small,fill=white,fill opacity=0.9,text opacity=1,draw=darkgray!40}
+]
+\fill[softblue,opacity=0.6] (axis cs:1,0) rectangle (axis cs:4.5,78);
+\fill[softgray,opacity=0.8] (axis cs:4.5,0) rectangle (axis cs:8.5,78);
+\fill[accentorange,opacity=0.10] (axis cs:8.5,0) rectangle (axis cs:18,78);
+\node[font=\scriptsize,darkgray] at (axis cs:2.7,73) {在床};
+\node[font=\scriptsize,darkgray] at (axis cs:6.5,73) {離床};
+\node[font=\scriptsize,darkgray] at (axis cs:13.2,73) {再在床};
+\addplot[color=mainblue,line width=1pt,mark=*,mark size=1.5pt] coordinates {
+  (1,59) (2,61) (3,60) (4,58)
+  (5,12) (6,10) (7,11) (8,13)
+  (9,57) (10,59) (11,58) (12,60)
+  (13,61) (14,60) (15,62) (16,61) (17,60) (18,59)
+};
+\addlegendentry{模擬荷重}
+\addplot[color=accentorange,dashed,thick] coordinates {(1,24) (18,24)};
+\addlegendentry{再在床判定（体重比0.4）}
+\addplot[color=darkgray,dashed,thick] coordinates {(1,18) (18,18)};
+\addlegendentry{離床判定（体重比0.3）}
+\end{axis}
+\end{tikzpicture}
+\caption{模擬入力における荷重変化と判定しきい値}
+\label{fig:sim}
+\end{figure}
+
+\begin{table}[h]
+\centering
+\caption{模擬試験で確認したイベント}
+\label{tab:events}
+\begin{tabularx}{0.95\linewidth}{lYY}
+\toprule
+段階 & 状態 & 確認内容\\
+\midrule
+初期 & SLEEPING & 体重比が十分大きく在床と判定した\\
+離床 & AWAKE\_WINDOW & 荷重低下により離床後の監視へ移った\\
+復帰 & RETURNED & 監視時間内に荷重が戻ったことを検出した\\
+検出 & SECOND\_SLEEP & 再在床が継続し二度寝イベントを発生させた\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+模擬試験の実行ログは CSV 形式で保存され、各行に時刻、センサ生値、kg 換算値、平滑化後の値、状態、イベントが記録される。ログ上でも left\_bed（離床）、returned（再在床）、second\_sleep\_detected（二度寝検出）の各イベントがこの順で1回ずつ出力されており、平滑化後の値がしきい値を横切ったサンプルで状態が切り替わることを行単位で追跡できた。この試験は繰り返し実行しても同じイベント列が得られ、判定器の動作は再現的であった。したがって、実機の測定誤差を含まない条件では、設計した状態遷移とイベント出力が意図どおり機能することを確認できた。
+
+\subsection{実機の電気的測定と不具合の切り分け}
+
+実機は Raspberry Pi、HX711、ロードセルで構成し、まず当初設計どおりの4個構成で組み立てた。最初の動作確認では、HX711 の DOUT が変換完了（Low）にならずタイムアウトする状態と、読み値が 24 ビット A/D の端点値（$\pm 8388607$）に張り付く状態が発生し、ソフトウェアからは有効な荷重値を得られなかった。端点値への張り付きは配線系の異常でも起こり得るため、当初は入力の開放や断線を疑った。そこでテスターを用い、電源側から信号側へ向かって順に電圧と導通を実測して切り分けを行った。測定箇所と結果を表\ref{tab:probe}に示す。
+
+\begin{table}[h]
+\centering
+\caption{実機での電気的測定とソフトウェア不具合の切り分け}
+\label{tab:probe}
+\begin{tabularx}{0.95\linewidth}{lYYY}
+\toprule
+測定箇所 & 期待される値 & 実測値 & 判断\\
+\midrule
+HX711 の VCC-GND 間 & 3.3 V & 3.3 V & 電源供給は正常\\
+E+ - E- 間（励起電圧） & 電源電圧以下の一定値 & 約 2.68 V & ブリッジへの励起は正常\\
+A+ - A- 間（無荷重時） & ほぼ 0 mV & ほぼ 0 mV & ブリッジの平衡は正常\\
+A+ - A- 間（荷重印加時） & 数 mV 以下の微小変化 & わずかな変化を確認 & ブリッジ応答は存在\\
+センサ線の導通 & 全線で導通あり & おおむね導通あり & 初期不具合の主因ではない\\
+HX711 読み取り処理 & 有効サンプルを取得 & 端点値・タイムアウトが発生 & 実装ミスを修正\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+この測定では、電源、励起、ブリッジの応答、センサ線の導通に大きな異常は確認できず、初期不具合の主因はセンサ線の断線ではなく、HX711 の読み取り処理におけるソフトウェア実装ミスであると判断した。該当箇所を修正した後は、4個ロードセル構成でも DOUT が周期的に変換完了を示し、サンプル取得が成功した。
+
+ただし、後日別の作業中にロードセル1個のセンサ線を断線してしまったため、最終的な検証では故障したロードセルを外し、2個の半橋ロードセルによるブリッジ構成（図\ref{fig:two-cell-bridge}）へ組み替えた。したがって、初期不具合の原因であったソフトウェア実装ミスと、2個構成へ変更した理由である後日の断線は、別の事象である。
+
+実測値の妥当性は、ロードセルの定格からも確認できる。使用したロードセルの定格出力を約 1 mV/V と仮定すると、実測した励起電圧 2.68 V では定格荷重時でも差動電圧は約 2.7 mV にとどまり、数十 kg の荷重では 1 mV 前後となる。これは「無荷重時はほぼ 0 mV、荷重印加でわずかに変化する」という実測結果と整合しており、HX711 が内蔵アンプで 128 倍に増幅してから A/D 変換する必要性を、実測からも裏付けられた。
+
+\subsection{校正と荷重読み取りの確認}
+
+組み替え後の2個構成で、ゼロ点校正とスケール校正を実施した。ゼロ点校正では、寝具を載せた空床状態で読み値を繰り返し取得し、その中央値をゼロ点とした。起動直後は値が安定しないため、ウォームアップとして最初の5サンプルを捨て、その後の読み値へ9点の中央値フィルタを適用している。スケール校正では、既知重量の荷重を載せた状態で生値を取得し、スケール係数を（荷重時の生値 $-$ ゼロ点）$\div$ 既知重量として算出した。
+
+校正後に同じ既知荷重を載せ直して読み値を確認したところ、kg 相当値の誤差は約 0.8\%（1\%未満）であり、在床・離床判定には十分な精度で変換できることを確認した。また、在床相当の荷重を加えた状態と空床状態を繰り返して読み値を比較すると、両者は明確に分離しており、離床判定比 0.3・再在床判定比 0.4 のしきい値（体重比換算）に対して十分な余裕があった。
+
+この結果から、2個ロードセル構成でも、在床と離床を区別するために必要な大きな荷重変化は取得できることを確認した。ただし、体重計としての絶対精度、寝返りや荷物による誤判定率、利用者ごとのしきい値最適化は継続検証が必要である。単体テストとしては設定読込、センサ処理、Web API などの基本動作を確認し、現時点では 24 件のテストが通過している。そのため、本結果は「判定ロジック、ソフトウェア構成、実機読み取りの成立性」を示すものであり、最終的な実用性能を示すものではない。
+
+\section{考察}
+\label{sec:discussion}
+\AuthorNote{氏名D}
+
+本研究の有効性は、二度寝という行動を「起床後にベッドへ戻る」という観測可能な現象へ置き換えた点にある。眠気そのものを直接測ることは難しいが、ベッド荷重の変化なら安価なセンサで扱える。特に、カメラやマイクを使わないため、寝室で使う装置として心理的な抵抗を小さくできる可能性がある。
+
+一方で、荷重だけに頼る方式には限界もある。たとえば、ベッドの上に荷物を置いた場合や、利用者がベッド端に腰掛けた場合、荷重の大きさだけでは在床と誤判定する可能性がある。また、ロードセルの設置位置によって測定値が変化するため、実機導入時には校正が不可欠である。今回の実機では、初期の読み取り不良はソフトウェア修正により解消し、4個構成での動作を確認できた。一方で、後日にロードセル1個のセンサ線を断線したため、最終検証では2個構成へ変更した。これにより荷重分布の情報は少なくなったが、本研究で必要なのは体重の絶対値ではなく、空床状態と在床状態の差を安定して検出することである。2個構成でも校正後に既知荷重を誤差1\%未満の kg 相当値として読み取れたため、在床・離床判定の基礎検証には有効であった。
+
+この経験から、実機開発では回路図通りに配線するだけでなく、断線、接触不良、電源電圧、HX711 の応答、ソフトウェアの読み取り処理を順に切り分けることが重要だと分かった。特にロードセルは微小電圧を扱うため、線が細く、引っ張りや固定不足の影響を受けやすい。今後は、はんだ付け部の保護、ケース内でのケーブル固定、コネクタ化により、測定以前の故障要因を減らす必要がある。
+
+ソフトウェア面では、状態遷移による設計が扱いやすかった。判定の流れが明確で、ログを見ればどの条件でイベントが起きたか説明できる。これは初期開発や授業発表に向いている。ただし、利用者の睡眠習慣が多様であることを考えると、将来的には曜日、起床予定時刻、過去の失敗履歴などを用いて、しきい値や監視時間を自動調整する仕組みが有効である。
+
+\section{まとめと今後の課題}
+\label{sec:conclusion}
+\AuthorNote{全員}
+
+本研究では、ロードセルによる荷重センシングを用いて、起床後に再びベッドへ戻る行動を検出する二度寝防止システムを開発した。Raspberry Pi 上で動作する Python プログラムとして、センサ入力、状態判定、ログ出力、通知イベント、Web UI を構成し、さらに Android ネイティブアプリから状態確認、設定変更、校正、スマートフォン側アラーム鳴動を行えるようにした。
+
+得られた成果は三点に整理できる。第一に、模擬センサによる試験で、二度寝検出までの状態遷移とイベント出力を再現的に確認した。第二に、実機では電源電圧・励起電圧・差動電圧をテスターで実測し、初期の読み取り不良を配線不良ではなく HX711 読み取り処理の実装ミスとして切り分け、修正後に4個ロードセル構成でのサンプル取得を確認した。第三に、後日に発生したロードセル1個の断線へ対応するため最終検証では2個ロードセル構成へ変更し、既知重量によるゼロ点・スケール校正と荷重変化の読み取りを確認した。以上より、本研究の範囲では、判定ロジック、ソフトウェア構成、実機荷重読み取りの成立性を示すことができた。
+
+今後の課題は、第一に実使用に近い条件での測定安定性評価である。ベッド構造、床面、センサ固定方法により値が変化するため、校正方法と設置方法を決める必要がある。第二に、誤検出を減らすことである。寝返り、荷物、短時間の着座などを区別するには、判定比・フィルタ・確認時間といったパラメータの調整が考えられる。第三に、ハードウェアの信頼性向上である。後日に発生したようなセンサ線切れを避けるため、断線しにくい固定、ケーブル保護、コネクタ化を進め、必要に応じて4個ロードセル構成へ復帰できるようにする。第四に、通知方法の改善である。Android アプリのスマホアラームを中心に、通知権限、音量、再通知間隔、照明制御、家族への通知など、利用場面に応じた出力を選べると実用性が高まる。
+
+導入ゼミナールでの自由研究としては、電気電子工学の要素であるセンサ計測、A/D 変換、組込み処理、情報通信、ユーザインタフェースを一つの具体的な生活課題へ結びつけられた。今後、実機実験を重ねることで、より信頼性の高い起床支援システムへ発展させたい。
+
+\section*{参考資料}
+\begin{enumerate}
+  \item Avia Semiconductor, ``HX711 24-Bit Analog-to-Digital Converter (ADC) for Weigh Scales,'' データシート.
+  \item Raspberry Pi Ltd, ``Raspberry Pi Documentation''（2026年7月参照）. \url{https://www.raspberrypi.com/documentation/}
+  \item 本プロジェクトのリポジトリ一式（README、Raspberry Pi 側実装、Android アプリ実装、単体テスト）.
+\end{enumerate}
+
+\end{document}
